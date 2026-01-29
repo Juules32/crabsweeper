@@ -1,8 +1,8 @@
 [package]
 name = "crabsweeper"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-macroquad = "0.3.26"
-minesweeprs = "0.3.4"
+minesweeprs = { path = "lib/minesweeprs" }
+macroquad = "0.4.14"

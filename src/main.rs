@@ -18,8 +18,8 @@ async fn main() {
         MineCount { total_cells: 85, total_mines: 10 },
         &-1,
     );
+    info!("{:?}", output);
 
-    println!("{:?}", output);
     // The board is solvable, so the below should hold:
     assert_eq!(
         output,
@@ -41,14 +41,14 @@ async fn main() {
 
     let mut bitmap = Bitmap::new(8, 6);
     bitmap.set(2, 3, true);
-    println!("{bitmap}");
+    info!("{}", bitmap);
 
     let mut grid = Grid::from(bitmap);
     grid.reveal(4, 5);
     grid.reveal(2, 3);
     grid.reveal(3, 3);
     grid.flag(0, 0);
-    println!("{grid}");
+    info!("{}", grid);
 
     loop {
         clear_background(RED);

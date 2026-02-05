@@ -1,5 +1,28 @@
 use core::fmt;
 use crate::{Cell, CellContent, CellState};
+use unicode_width::UnicodeWidthStr;
+
+#[cfg(feature = "emoji_grid")]
+const CELL_WIDTH: usize = 2;
+#[cfg(not(feature = "emoji_grid"))]
+const CELL_WIDTH: usize = 1;
+
+#[cfg(feature = "emoji_grid")]
+const MINE_CELL: &str = "🦀";
+#[cfg(not(feature = "emoji_grid"))]
+const MINE_CELL: &str = "M";
+
+#[cfg(feature = "emoji_grid")]
+const COVERED_CELL: &str = "🟦";
+#[cfg(not(feature = "emoji_grid"))]
+const COVERED_CELL: &str = "#";
+
+#[cfg(feature = "emoji_grid")]
+const FLAG_CELL: &str = "🚩";
+#[cfg(not(feature = "emoji_grid"))]
+const FLAG_CELL: &str = "F";
+
+const EMPTY_CELL: &str = " ";
 
 #[derive(Clone, Debug)]
 pub struct Bitmap {
@@ -82,48 +105,79 @@ impl Bitmap {
     }
 }
 
-fn draw_grid<F: Fn(usize, usize) -> char>(width: usize, height: usize, get_symbol: F) -> String {
-    let mut grid_string = String::new();
-    let horizontal = {
-        let mut line = String::new();
-        for _ in 0..width {
-            line.push('+');
-            line.push_str(" — ");
+fn horizontal_line(
+    width: usize,
+    left: char,
+    mid: char,
+    right: char,
+) -> String {
+    let mut line = String::new();
+    line.push(left);
+
+    for x in 0..width {
+        line.push_str(&"─".repeat(CELL_WIDTH + 2));
+        if x + 1 < width {
+            line.push(mid);
         }
-        line.push('+');
-        line
-    };
-
-    for y in 0..height {
-        grid_string += &horizontal;
-        grid_string += "\n";
-
-        grid_string += &({
-            let mut row = String::new();
-            for x in 0..width {
-                row.push('|');
-                let c = get_symbol(x, y);
-                row.push(' ');
-                row.push(c);
-                row.push(' ');
-            }
-            row.push('|');
-            row
-        } + "\n");
     }
 
-    grid_string += &horizontal;
+    line.push(right);
+    line
+}
 
-    grid_string
+fn format_cell(s: &str) -> String {
+    let w = UnicodeWidthStr::width(s);
+
+    if w >= CELL_WIDTH {
+        s.to_string()
+    } else {
+        let pad = CELL_WIDTH - w;
+        format!("{}{}", " ".repeat(pad), s)
+    }
+}
+
+fn draw_grid<F: Fn(usize, usize) -> String>(width: usize, height: usize, get_symbol: F) -> String {
+    let mut out = String::new();
+
+    let top = horizontal_line(width, '┌', '┬', '┐');
+    let mid = horizontal_line(width, '├', '┼', '┤');
+    let bot = horizontal_line(width, '└', '┴', '┘');
+
+    out.push_str(&top);
+    out.push('\n');
+
+    for y in 0..height {
+        let mut row = String::new();
+        row.push('│');
+
+        for x in 0..width {
+            let sym = get_symbol(x, y);
+            row.push(' ');
+            row.push_str(&format_cell(&sym));
+            row.push(' ');
+            row.push('│');
+        }
+
+        out.push_str(&row);
+        out.push('\n');
+
+        if y + 1 < height {
+            out.push_str(&mid);
+            out.push('\n');
+        }
+    }
+
+    out.push_str(&bot);
+    out
 }
 
 impl fmt::Display for Bitmap {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "{}", draw_grid(self.width, self.height, |x, y| {
             if self.get(x, y) {
-                '*'
+                MINE_CELL.to_string()
             } else {
-                ' '
+                EMPTY_CELL.to_string()
             }
         }))?;
         writeln!(f, "\nWidth: {}", self.width)?;
@@ -156,7 +210,11 @@ impl Grid {
     }
 
     fn count_mines(&self) -> usize {
-        self.cells.iter().filter(|b| b.content == CellContent::Mine).count()
+        self.cells.iter().filter(|c| c.content == CellContent::Mine).count()
+    }
+
+    fn count_flags(&self) -> usize {
+        self.cells.iter().filter(|c| c.state == CellState::Flagged).count()
     }
 
     pub fn reveal(&mut self, x: usize, y: usize) {
@@ -196,20 +254,22 @@ impl fmt::Display for Grid {
         writeln!(f, "{}", draw_grid(self.width, self.height, |x, y| {
             let Cell { content, state } = self.get(x, y);
             match state {
-                CellState::Covered => '■',
-                CellState::Flagged => '⚑',
+                CellState::Covered => COVERED_CELL.to_string(),
+                CellState::Flagged => FLAG_CELL.to_string(),
                 CellState::Revealed => {
                     match content {
-                        CellContent::Empty => ' ',
-                        CellContent::Mine => 'X',
-                        CellContent::Number(n) => char::from_digit(n as u32, 10).unwrap(),
+                        CellContent::Empty => EMPTY_CELL.to_string(),
+                        CellContent::Mine => MINE_CELL.to_string(),
+                        CellContent::Number(n) => n.to_string(),
                     }
                 }
             }
         }))?;
+
         writeln!(f, "\nWidth: {}", self.width)?;
         writeln!(f, "Height: {}", self.height)?;
         writeln!(f, "Mines: {}", self.count_mines())?;
+        writeln!(f, "Flags: {}", self.count_flags())?;
 
         Ok(())
     }

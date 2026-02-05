@@ -6,3 +6,9 @@ edition = "2024"
 [dependencies]
 minesweeprs = { path = "lib/minesweeprs" }
 macroquad = "0.4.14"
+unicode-width = "0.2.2"
+
+[features]
+default = []
+wasm = []
+emoji_grid = []

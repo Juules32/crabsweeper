@@ -5,4 +5,4 @@ mod grid;
 mod cell;
 
 use cell::{CellContent, CellState, Cell};
-pub use grid::{Grid, Bitmap};
+pub use grid::{BitGrid, MinesweeperGrid};

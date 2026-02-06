@@ -25,13 +25,38 @@ const FLAG_CELL: &str = "F";
 const EMPTY_CELL: &str = " ";
 
 #[derive(Clone, Debug)]
-pub struct Bitmap {
+pub struct BitGrid {
     width: usize,
     height: usize,
     bits: Vec<bool>,
 }
 
-impl Bitmap {
+fn neighbors(width: usize, height: usize, x: usize, y: usize) -> Vec<(usize, usize)> {
+    let mut result = Vec::new();
+
+    for dx in [-1isize, 0, 1] {
+        for dy in [-1isize, 0, 1] {
+            if dx == 0 && dy == 0 {
+                continue;
+            }
+
+            let nx = x as isize + dx;
+            let ny = y as isize + dy;
+
+            if nx >= 0
+                && ny >= 0
+                && (nx as usize) < width
+                && (ny as usize) < height
+            {
+                result.push((nx as usize, ny as usize));
+            }
+        }
+    }
+
+    result
+}
+
+impl BitGrid {
     pub fn new(width: usize, height: usize) -> Self {
         Self::from_bits(width, height, vec![false; width * height])
     }
@@ -56,33 +81,10 @@ impl Bitmap {
     }
 
     fn get_adjacent_bits(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
-        let mut adjacent_bits = Vec::new();
-        if x > 0 {
-            adjacent_bits.push((x- 1, y));
-            if y > 0 {
-                adjacent_bits.push((x - 1, y - 1));
-            }
-            if y < self.height - 1 {
-                adjacent_bits.push((x - 1, y + 1));
-            }
-        }
-        if x < self.width - 1 {
-            adjacent_bits.push((x + 1, y));
-            if y > 0 {
-                adjacent_bits.push((x + 1, y - 1));
-            }
-            if y < self.height - 1 {
-                adjacent_bits.push((x + 1, y + 1));
-            }
-        }
-        if y > 0 {
-            adjacent_bits.push((x, y - 1));
-        }
-        if y < self.height - 1 {
-            adjacent_bits.push((x, y + 1));
-        }
-
-        adjacent_bits
+        neighbors(self.width, self.height, x, y)
+            .into_iter()
+            .filter(|&(nx, ny)| self.get(nx, ny))
+            .collect()
     }
 
     fn count_bits(&self) -> usize {
@@ -171,7 +173,7 @@ fn draw_grid<F: Fn(usize, usize) -> String>(width: usize, height: usize, get_sym
     out
 }
 
-impl fmt::Display for Bitmap {
+impl fmt::Display for BitGrid {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "{}", draw_grid(self.width, self.height, |x, y| {
             if self.get(x, y) {
@@ -188,13 +190,14 @@ impl fmt::Display for Bitmap {
     }
 }
 
-pub struct Grid {
+pub struct MinesweeperGrid {
     pub width: usize,
     pub height: usize,
     pub cells: Vec<Cell>,
+    pub game_over: bool,
 }
 
-impl Grid {
+impl MinesweeperGrid {
     fn index(&self, x: usize, y: usize) -> usize {
         debug_assert!(x < self.width && y < self.height);
         y * self.width + x
@@ -217,10 +220,46 @@ impl Grid {
         self.cells.iter().filter(|c| c.state == CellState::Flagged).count()
     }
 
-    pub fn reveal(&mut self, x: usize, y: usize) {
+    fn try_reveal_single(&mut self, x: usize, y: usize) {
         let cell = self.get_mut(x, y);
-        cell.state = CellState::Revealed;
-        // Propagate if cell is empty
+        if Self::can_be_revealed(cell) {
+            cell.state = CellState::Revealed;
+        }
+    }
+
+    fn should_propagate(cell: &Cell) -> bool {
+        (match cell.state {
+            CellState::Covered => false,
+            CellState::Revealed => true,
+            CellState::Flagged => false,
+        }) && (match cell.content {
+            CellContent::Mine => false,
+            CellContent::Empty => true,
+            CellContent::Number(_) => false,
+        })
+    }
+
+    fn can_be_revealed(cell: &Cell) -> bool {
+        match &cell.state {
+            CellState::Covered => true,
+            CellState::Revealed => false,
+            CellState::Flagged => false,
+        }
+    }
+
+    pub fn reveal(&mut self, x: usize, y: usize) {
+        self.try_reveal_single(x, y);
+
+        if !Self::should_propagate(&self.get(x, y)) {
+            return;
+        };
+
+        for (nx, ny) in neighbors(self.width, self.height, x, y) {
+            let neighbor_cell = self.get(nx, ny);
+            if Self::can_be_revealed(&neighbor_cell) {
+                self.reveal(nx, ny);
+            }
+        }
     }
 
     pub fn flag(&mut self, x: usize, y: usize) {
@@ -229,8 +268,8 @@ impl Grid {
     }
 }
 
-impl From<Bitmap> for Grid {
-    fn from(bitmap: Bitmap) -> Self {
+impl From<BitGrid> for MinesweeperGrid {
+    fn from(bitmap: BitGrid) -> Self {
         let width = bitmap.width;
         let height = bitmap.height;
         let cells = (0..width * height)
@@ -240,16 +279,18 @@ impl From<Bitmap> for Grid {
                 bitmap.get_cell_content(x, y).into()
             })
             .collect();
+        let game_over = false;
 
         Self {
             width,
             height,
             cells,
+            game_over,
         }
     }
 }
 
-impl fmt::Display for Grid {
+impl fmt::Display for MinesweeperGrid {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "{}", draw_grid(self.width, self.height, |x, y| {
             let Cell { content, state } = self.get(x, y);

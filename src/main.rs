@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 use minesweeprs::{solve, MineCount, Rule};
-use crabsweeper::{Bitmap, Grid};
+use crabsweeper::{BitGrid, MinesweeperGrid};
 
 #[macroquad::main("BasicShapes")]
 async fn main() {
@@ -39,11 +39,18 @@ async fn main() {
         )
     );
 
-    let mut bitmap = Bitmap::new(8, 6);
+    let mut bitmap = BitGrid::new(8, 6);
+    bitmap.set(2, 0, true);
+    bitmap.set(2, 1, true);
+    bitmap.set(2, 2, true);
     bitmap.set(2, 3, true);
+    bitmap.set(2, 4, true);
+    bitmap.set(2, 5, true);
+
+
     info!("{}", bitmap);
 
-    let mut grid = Grid::from(bitmap);
+    let mut grid = MinesweeperGrid::from(bitmap);
     grid.reveal(4, 5);
     grid.reveal(2, 3);
     grid.reveal(3, 3);

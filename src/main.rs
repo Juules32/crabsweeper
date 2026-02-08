@@ -1,10 +1,63 @@
 use macroquad::prelude::*;
 use minesweeprs::{solve, MineCount, Rule};
-use crabsweeper::{BitGrid, MinesweeperGrid};
+use crabsweeper::{BitGrid, Cell, CellContent, CellState, MinesweeperGrid};
+
+const SCALE: usize = 2;
+const GRID_SIZE: usize = 16;
+
+fn get_spritesheet_index(cell: &Cell) -> usize {
+    match cell.state {
+        CellState::Covered => 12,
+        CellState::Revealed => {
+            match cell.content {
+                CellContent::Empty => 0,
+                CellContent::Number(n) => n as usize,
+                CellContent::Mine => 10,
+            }
+        }
+        CellState::Flagged => 11,
+    }
+}
+
+fn get_spritesheet_source(cell: &Cell) -> Rect {
+    Rect {
+        x: (get_spritesheet_index(cell) * GRID_SIZE) as f32,
+        y: 0.,
+        w: GRID_SIZE as f32,
+        h: GRID_SIZE as f32,
+    }
+}
+
+fn get_grid_point(grid: &MinesweeperGrid, x: isize, y: isize) -> Option<(usize, usize)> {
+    let screen_width = screen_width() as isize;
+    let screen_height = screen_height() as isize;
+
+    let grid_offset_x = (grid.width * GRID_SIZE * SCALE / 2) as isize;
+    let grid_offset_y = (grid.height * GRID_SIZE * SCALE / 2) as isize;
+
+    let offset_x = (x - (screen_width / 2) + grid_offset_x) / GRID_SIZE as isize;
+    let offset_y = (y - (screen_height / 2) + grid_offset_y) / GRID_SIZE as isize;
+    println!("Grid offset {grid_offset_x} {grid_offset_y}");
+    println!("Offset {offset_x} {offset_y}");
+    println!();
+
+    if offset_x < 0 || offset_x >= grid.width as isize || offset_y < 0 || offset_y >= grid.height as isize {
+        None
+    } else {
+        Some((offset_x as usize, offset_y as usize))
+    }
+}
+
+fn get_mouse_cell(grid: &MinesweeperGrid) -> &Cell {
+    grid.get(5, 3)
+}
+
+fn get_mouse_cell_mut(grid: &mut MinesweeperGrid) -> &mut Cell {
+    grid.get_mut(5, 3)
+}
 
 #[macroquad::main("BasicShapes")]
 async fn main() {
-
     let output = solve(
         &[
             Rule::new(1, [0, 1]),
@@ -39,32 +92,43 @@ async fn main() {
         )
     );
 
-    let mut bitmap = BitGrid::new(8, 6);
-    bitmap.set(2, 0, true);
-    bitmap.set(2, 1, true);
-    bitmap.set(2, 2, true);
-    bitmap.set(2, 3, true);
-    bitmap.set(2, 4, true);
-    bitmap.set(2, 5, true);
+    let mut bit_grid = BitGrid::new(8, 6);
+    bit_grid.set(2, 0, true);
+    bit_grid.set(2, 1, true);
+    bit_grid.set(2, 2, true);
+    bit_grid.set(2, 3, true);
+    bit_grid.set(2, 4, true);
+    bit_grid.set(2, 5, true);
 
+    info!("{}", bit_grid);
 
-    info!("{}", bitmap);
+    let mut minesweeper_grid = MinesweeperGrid::from(bit_grid);
+    minesweeper_grid.reveal(4, 5);
+    minesweeper_grid.reveal(2, 3);
+    minesweeper_grid.reveal(3, 3);
+    minesweeper_grid.flag(0, 0);
+    info!("{}", minesweeper_grid);
 
-    let mut grid = MinesweeperGrid::from(bitmap);
-    grid.reveal(4, 5);
-    grid.reveal(2, 3);
-    grid.reveal(3, 3);
-    grid.flag(0, 0);
-    info!("{}", grid);
+    let texture = load_texture("assets/crabsweeper.png").await.unwrap();
+    texture.set_filter(FilterMode::Nearest);
 
     loop {
-        clear_background(RED);
+        clear_background(DARKBLUE);
 
-        draw_line(40.0, 40.0, 100.0, 200.0, 15.0, BLUE);
-        draw_rectangle(screen_width() / 2.0 - 60.0, 100.0, 120.0, 60.0, GREEN);
-        draw_circle(screen_width() - 30.0, screen_height() - 30.0, 15.0, YELLOW);
+        if is_mouse_button_pressed(MouseButton::Left) {
+            get_mouse_cell_mut(&mut minesweeper_grid).state = CellState::Flagged;
+            info!("{}", minesweeper_grid);
+            get_grid_point(&minesweeper_grid, mouse_position().0 as isize, mouse_position().1 as isize);
+        }
 
-        draw_text("IT WORKS!", 20.0, 20.0, 30.0, DARKGRAY);
+        for (x, y, cell) in minesweeper_grid.iter_xy() {
+            let params = DrawTextureParams {
+                dest_size: Some(Vec2 { x: (GRID_SIZE * SCALE) as f32, y: (GRID_SIZE * SCALE) as f32 }),
+                source: Some(get_spritesheet_source(cell)),
+                ..Default::default()
+            };
+            draw_texture_ex(&texture, (x * GRID_SIZE * SCALE) as f32, (y * GRID_SIZE * SCALE) as f32, WHITE, params);
+        }
 
         next_frame().await
     }

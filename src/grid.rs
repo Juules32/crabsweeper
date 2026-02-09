@@ -1,5 +1,6 @@
 use core::fmt;
 use unicode_width::UnicodeWidthStr;
+use crate::{Cell, CellState, CellContent};
 
 #[cfg(feature = "emoji_grid")]
 const CELL_WIDTH: usize = 2;
@@ -22,35 +23,6 @@ const FLAG_CELL: &str = "🚩";
 const FLAG_CELL: &str = "F";
 
 const EMPTY_CELL: &str = " ";
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CellContent {
-    Empty,
-    Number(u8),
-    Mine,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CellState {
-    Covered,
-    Revealed,
-    Flagged,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Cell {
-    pub content: CellContent,
-    pub state: CellState,
-}
-
-impl From<CellContent> for Cell {
-    fn from(content: CellContent) -> Self {
-        Self {
-            content,
-            state: CellState::Covered,
-        }
-    }
-}
 
 #[derive(Clone, Debug)]
 pub struct Grid<T> {
@@ -229,30 +201,21 @@ impl MinesweeperGrid {
 
     fn try_reveal_single(&mut self, x: usize, y: usize) {
         let cell = self.get_mut(x, y);
-        if Self::can_be_revealed(cell) {
+        if cell.can_be_revealed() {
             cell.state = CellState::Revealed;
         }
-    }
-
-    fn should_propagate(cell: &Cell) -> bool {
-        matches!(cell.state, CellState::Revealed)
-            && matches!(cell.content, CellContent::Empty)
-    }
-
-    fn can_be_revealed(cell: &Cell) -> bool {
-        matches!(cell.state, CellState::Covered)
     }
 
     pub fn reveal(&mut self, x: usize, y: usize) {
         self.try_reveal_single(x, y);
 
-        if !Self::should_propagate(&self.get(x, y)) {
+        if !self.get(x, y).should_propagate() {
             return;
         }
 
         for (nx, ny) in self.neighbors_coords(x, y) {
             let neighbor_cell = self.get(nx, ny);
-            if Self::can_be_revealed(&neighbor_cell) {
+            if neighbor_cell.can_be_revealed() {
                 self.reveal(nx, ny);
             }
         }
@@ -260,10 +223,13 @@ impl MinesweeperGrid {
 
     pub fn flag(&mut self, x: usize, y: usize) {
         let cell = self.get_mut(x, y);
-        cell.state = CellState::Flagged;
+        match cell.state {
+            CellState::Covered => cell.state = CellState::Flagged,
+            CellState::Revealed => (),
+            CellState::Flagged => cell.state = CellState::Covered,
+        }
     }
 }
-
 
 impl From<BitGrid> for MinesweeperGrid {
     fn from(bitmap: BitGrid) -> Self {

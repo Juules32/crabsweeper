@@ -1,7 +1,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
-
 mod grid;
 mod cell;
 
-pub use grid::{Cell, CellState, CellContent, BitGrid, MinesweeperGrid};
+pub use cell::{Cell, CellState, CellContent};
+pub use grid::{BitGrid, MinesweeperGrid};

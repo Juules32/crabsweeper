@@ -1,9 +1,14 @@
 use core::fmt;
+use std::collections::{HashSet, VecDeque};
 use crate::{BitGrid, Cell, CellContent, CellState, Grid, CELL_THEME};
 
 pub type MinesweeperGrid = Grid<Cell>;
 
 impl MinesweeperGrid {
+    pub fn empty(width: usize, height: usize) -> Self {
+        BitGrid::empty(width, height).into()
+    }
+    
     fn count_mines(&self) -> usize {
         self.cells.iter().filter(|c| c.content == CellContent::Mine).count()
     }
@@ -20,16 +25,28 @@ impl MinesweeperGrid {
     }
 
     pub fn reveal(&mut self, x: usize, y: usize) {
-        self.try_reveal_single(x, y);
+        let mut stack = VecDeque::new();
+        stack.push_back((x, y));
 
-        if !self.get(x, y).should_propagate() {
-            return;
-        }
+        let mut visited_cells = HashSet::new();
 
-        for (nx, ny) in self.neighbors_coords(x, y) {
-            let neighbor_cell = self.get(nx, ny);
-            if neighbor_cell.can_be_revealed() {
-                self.reveal(nx, ny);
+        while let Some((x, y)) = stack.pop_front() {
+            if visited_cells.contains(&(x, y)) {
+                continue;
+            }
+            visited_cells.insert((x, y));
+            
+            self.try_reveal_single(x, y);
+
+            if !self.get(x, y).should_propagate() {
+                continue;
+            }
+
+            for (nx, ny) in self.neighbors_coords(x, y) {
+                let neighbor_cell = self.get(nx, ny);
+                if neighbor_cell.can_be_revealed() {
+                    stack.push_back((nx, ny));
+                }
             }
         }
     }

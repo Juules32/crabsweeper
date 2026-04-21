@@ -4,7 +4,7 @@ use crate::{Grid, CellContent, CELL_THEME};
 pub type BitGrid = Grid<bool>;
 
 impl BitGrid {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn empty(width: usize, height: usize) -> Self {
         Self {
             width,
             height,

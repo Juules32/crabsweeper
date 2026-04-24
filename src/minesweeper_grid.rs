@@ -27,7 +27,6 @@ impl MinesweeperGrid {
     pub fn reveal(&mut self, x: usize, y: usize) {
         let mut stack = VecDeque::new();
         stack.push_back((x, y));
-
         let mut visited_cells = HashSet::new();
 
         while let Some((x, y)) = stack.pop_front() {
@@ -42,7 +41,7 @@ impl MinesweeperGrid {
                 continue;
             }
 
-            for (nx, ny) in self.neighbors_coords(x, y) {
+            for (nx, ny) in self.neighbor_coords(x, y) {
                 let neighbor_cell = self.get(nx, ny);
                 if neighbor_cell.can_be_revealed() {
                     stack.push_back((nx, ny));
@@ -59,17 +58,30 @@ impl MinesweeperGrid {
             CellState::Flagged => cell.state = CellState::Covered,
         }
     }
+
+    pub fn update_content(&mut self, bit_grid: BitGrid) {
+        self.cells = self.cells
+            .iter()
+            .zip(MinesweeperGrid::from(bit_grid).cells.iter())
+            .map(|(old, new)| {
+                Cell {
+                    content: new.content,
+                    state: old.state,
+                }
+            })
+            .collect()
+    }
 }
 
 impl From<BitGrid> for MinesweeperGrid {
-    fn from(bitmap: BitGrid) -> Self {
-        let width = bitmap.width;
-        let height = bitmap.height;
+    fn from(bit_grid: BitGrid) -> Self {
+        let width = bit_grid.width;
+        let height = bit_grid.height;
         let cells = (0..width * height)
             .map(|i| {
                 let x = i % width;
                 let y = i / width;
-                bitmap.get_cell_content(x, y).into()
+                bit_grid.get_cell_content(x, y).into()
             })
             .collect();
 

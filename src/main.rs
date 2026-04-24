@@ -1,21 +1,21 @@
+use std::cmp::max;
 use macroquad::prelude::*;
 use minesweeprs::{solve, MineCount, Rule};
-use crabsweeper::{BitGrid, Cell, CellContent, CellState, Game, MinesweeperGrid, RandomGenerator};
+use crabsweeper::{Cell, CellContent, CellState, Game, MinesweeperGrid, RandomGenerator};
 
-
-use macroquad::ui::widgets::{Button, ComboBox, Slider};
-use macroquad::ui::{
-    hash, root_ui,
-    widgets::{self, Group},
-    Drag, Ui,
-};
+use macroquad::ui::widgets::{ComboBox, Slider};
+use macroquad::ui::{hash, root_ui};
 
 // How many pixels a cell is
 const CELL_SIZE: f32 = 16.0;
 const BOARD_PADDING: f32 = 116.0;
+const MIN_ZOOM: f32 = 0.1;
+const MAX_ZOOM: f32 = 1.5;
+const ZOOM_STEP: f32 = 0.08;
+const SCALE_THRESHOLD: f32 = 0.3;
 
 // Ratio of screen pixel to sprite pixel
-fn get_scale(grid: &MinesweeperGrid) -> f32 {
+fn get_scale(grid: &MinesweeperGrid, zoom_level: f32) -> f32 {
     let screen_width = screen_width() - BOARD_PADDING * 2.0;
     let screen_height = screen_height() - BOARD_PADDING * 2.0;
     let screen_ratio = screen_width / screen_height;
@@ -24,39 +24,47 @@ fn get_scale(grid: &MinesweeperGrid) -> f32 {
     let grid_height = grid.height as f32;
     let grid_ratio = grid_width / grid_height;
 
-    if screen_ratio >= grid_ratio {
-        screen_height / (grid_height * CELL_SIZE)
+    let unzoomed_scale = if screen_ratio >= grid_ratio {
+        screen_height / (grid_height * CELL_SIZE) + zoom_level
     } else {
-        screen_width / (grid_width * CELL_SIZE)
+        screen_width / (grid_width * CELL_SIZE) + zoom_level
+    };
+    let initial_scale = unzoomed_scale * zoom_level * zoom_level;
+    if initial_scale < SCALE_THRESHOLD {
+        SCALE_THRESHOLD
+    } else {
+        initial_scale
     }
 }
 
-fn get_spritesheet_index(cell: &Cell) -> f32 {
-    match cell.state {
-        CellState::Covered => 12.0,
-        CellState::Revealed => {
-            match cell.content {
-                CellContent::Empty => 0.0,
-                CellContent::Number(n) => n as f32,
-                CellContent::Mine => 10.0,
+fn get_spritesheet_index(cell: Cell, is_pressed_cell: bool) -> f32 {
+    if is_pressed_cell && cell.state == CellState::Covered {
+        0.0
+    } else {
+        match cell.state {
+            CellState::Covered => 12.0,
+            CellState::Revealed => {
+                match cell.content {
+                    CellContent::Empty => 0.0,
+                    CellContent::Number(n) => n as f32,
+                    CellContent::Mine => 10.0,
+                }
             }
+            CellState::Flagged => 11.0,
         }
-        CellState::Flagged => 11.0,
     }
 }
 
-fn get_spritesheet_source(cell: &Cell) -> Rect {
+fn get_spritesheet_source(cell: Cell, is_pressed_cell: bool) -> Rect {
     Rect {
-        x: get_spritesheet_index(cell) * CELL_SIZE,
-        y: 0.,
+        x: get_spritesheet_index(cell, is_pressed_cell) * CELL_SIZE,
+        y: 0.0,
         w: CELL_SIZE,
         h: CELL_SIZE,
     }
 }
 
-fn get_screen_to_grid(grid: &MinesweeperGrid, screen_position: (f32, f32)) -> Option<(usize, usize)> {
-    let scale = get_scale(grid);
-
+fn get_screen_to_grid(grid: &MinesweeperGrid, screen_position: (f32, f32), scale: f32) -> Option<(usize, usize)> {
     let screen_width = screen_width();
     let screen_height = screen_height();
 
@@ -73,9 +81,7 @@ fn get_screen_to_grid(grid: &MinesweeperGrid, screen_position: (f32, f32)) -> Op
     }
 }
 
-fn get_grid_to_screen(grid: &MinesweeperGrid, cell_position: (usize, usize)) -> Option<(f32, f32)> {
-    let scale = get_scale(grid);
-
+fn get_grid_to_screen(grid: &MinesweeperGrid, cell_position: (usize, usize), scale: f32) -> Option<(f32, f32)> {
     if cell_position.0 >= grid.width || cell_position.1 >= grid.height {
         return None;
     }
@@ -104,8 +110,10 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let SPRITESHEET: Texture2D = load_texture("assets/spritesheet.png").await.unwrap();
-    SPRITESHEET.set_filter(FilterMode::Nearest);
+    let spritesheet: Texture2D = load_texture("assets/spritesheet.png").await.unwrap();
+    let mut pressed_cell: Option<(usize, usize)>;
+
+    spritesheet.set_filter(FilterMode::Nearest);
 
     let output = solve(
         &[
@@ -139,34 +147,53 @@ async fn main() {
         ].into()),
     );
 
-    let mut game = Game::new(6, 3, RandomGenerator);
-
+    let mut game = Game::new(6, 3, RandomGenerator {seed: 2, num_mines:3});
+    let mut zoom_level: f32 = 1.0;
     let mut ui_width: f32 = 30.0;
     let mut ui_height: f32 = 16.0;
     let mut ui_generator_option: usize = 0;
+    let mut ui_random_generator_seed = String::new();
+    let mut ui_random_generator_num_mines: usize = 99;
 
     loop {
         clear_background(DARKBLUE);
+        let scale = get_scale(&game.grid, zoom_level);
+        pressed_cell = None;
 
-        get_screen_to_grid(&game.grid, mouse_position());
-        if let Some((x, y)) = get_screen_to_grid(&game.grid, mouse_position()) {
+        if let Some((x, y)) = get_screen_to_grid(&game.grid, mouse_position(), scale) {
             if is_mouse_button_pressed(MouseButton::Right) {
                 game.flag(x, y);
-            } else if is_mouse_button_pressed(MouseButton::Left) {
+            }
+            if is_mouse_button_released(MouseButton::Left) {
                 game.reveal(x, y);
+            }
+            if is_mouse_button_down(MouseButton::Left) {
+                pressed_cell = Some((x, y));
+            }
+
+        }
+        if let (_, wheel_y) = mouse_wheel() {
+            if wheel_y != 0.0 {
+                if !(wheel_y.is_sign_negative() && scale <= SCALE_THRESHOLD) {
+                    zoom_level += wheel_y.signum() * ZOOM_STEP;
+                    zoom_level = zoom_level.clamp(MIN_ZOOM, MAX_ZOOM);
+                }
             }
         }
 
-        let scale = get_scale(&game.grid);
-
         for (x, y, cell) in game.grid.iter_xy() {
+            let is_pressed_cell = if let Some(pressed_cell) = pressed_cell {
+                (x, y) == pressed_cell
+            } else {
+                false
+            };
             let params = DrawTextureParams {
                 dest_size: Some(Vec2 { x: CELL_SIZE * scale, y: CELL_SIZE * scale }),
-                source: Some(get_spritesheet_source(cell)),
+                source: Some(get_spritesheet_source(*cell, is_pressed_cell)),
                 ..Default::default()
             };
-            if let Some((drawn_x, drawn_y)) = get_grid_to_screen(&game.grid, (x, y)) {
-                draw_texture_ex(&SPRITESHEET, drawn_x, drawn_y, WHITE, params);
+            if let Some((drawn_x, drawn_y)) = get_grid_to_screen(&game.grid, (x, y), scale) {
+                draw_texture_ex(&spritesheet, drawn_x, drawn_y, WHITE, params);
             }
         }
 
@@ -190,12 +217,12 @@ async fn main() {
                 .label("Generator Type")
                 .ui(ui, &mut ui_generator_option);
 
-            if ui.button(None, "buy") {
-                let generator_type = match ui_generator_option {
-                    0 => RandomGenerator,
-                    _ => todo!(),
+            if ui.button(None, "Generate Grid") {
+                let random_generator = RandomGenerator {
+                    seed: hash!(ui_random_generator_seed.clone()),
+                    num_mines: ui_random_generator_num_mines,
                 };
-                game = Game::new(ui_width as usize, ui_height as usize, generator_type);
+                game = Game::new(ui_width as usize, ui_height as usize, random_generator);
             }
         });
 

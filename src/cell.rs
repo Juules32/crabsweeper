@@ -20,11 +20,11 @@ pub struct Cell {
 
 impl Cell {
     pub fn can_be_revealed(&self) -> bool {
-        matches!(self.state, CellState::Covered)
+        self.state == CellState::Covered
     }
 
     pub fn should_propagate(&self) -> bool {
-        matches!(self.state, CellState::Revealed) && matches!(self.content, CellContent::Empty)
+        self.state == CellState::Revealed && self.content == CellContent::Empty
     }
 }
 

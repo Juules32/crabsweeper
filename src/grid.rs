@@ -53,7 +53,7 @@ impl<T> Grid<T> {
         &mut self.cells[index]
     }
 
-    pub fn neighbors_coords(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
+    pub fn neighbor_coords(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
         let mut result = Vec::new();
         for dx in [-1isize, 0, 1] {
             for dy in [-1isize, 0, 1] {

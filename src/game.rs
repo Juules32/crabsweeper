@@ -25,7 +25,7 @@ impl Game {
     pub fn reveal(&mut self, x: usize, y: usize) {
         if let State::JustCreated = self.state {
             self.state = State::Playing;
-            self.grid = self.generator.generate(self.grid.width, self.grid.height);
+            self.grid.update_content(self.generator.generate(self.grid.width, self.grid.height, x, y));
         }
         if let State::Playing = self.state {
             self.grid.reveal(x, y);

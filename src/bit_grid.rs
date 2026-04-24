@@ -17,7 +17,7 @@ impl BitGrid {
     }
 
     pub fn count_adjacent_bits(&self, x: usize, y: usize) -> usize {
-        self.neighbors_coords(x, y)
+        self.neighbor_coords(x, y)
             .iter()
             .filter(|&&(nx, ny)| *self.get(nx, ny))
             .count()

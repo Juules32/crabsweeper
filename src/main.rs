@@ -1,10 +1,11 @@
 use std::cmp::max;
+use macroquad::miniquad::window::screen_size;
 use macroquad::prelude::*;
 use minesweeprs::{solve, MineCount, Rule};
-use crabsweeper::{Cell, CellContent, CellState, Game, MinesweeperGrid, RandomGenerator};
+use crabsweeper::{Cell, CellContent, CellState, MinesweeperGame, Generator, MinesweeperGrid, RandomGenerator, State};
 
 use macroquad::ui::widgets::{ComboBox, Slider};
-use macroquad::ui::{hash, root_ui};
+use macroquad::ui::{hash, root_ui, Skin};
 
 // How many pixels a cell is
 const CELL_SIZE: f32 = 16.0;
@@ -13,6 +14,7 @@ const MIN_ZOOM: f32 = 0.1;
 const MAX_ZOOM: f32 = 1.5;
 const ZOOM_STEP: f32 = 0.08;
 const SCALE_THRESHOLD: f32 = 0.3;
+const MIN_UI_WIDTH: f32 = 100.0;
 
 // Ratio of screen pixel to sprite pixel
 fn get_scale(grid: &MinesweeperGrid, zoom_level: f32) -> f32 {
@@ -108,6 +110,13 @@ fn window_conf() -> Conf {
     }
 }
 
+fn draw_centered_text(text: &str, font_size: f32, color: Color) {
+    let t = measure_text(text, None, font_size as u16, 1.0);
+    let x = (screen_width() - t.width) / 2.0;
+    let y = (screen_height() + font_size / 2.0) / 2.0;
+    draw_text(text, x, y, font_size, color);
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let spritesheet: Texture2D = load_texture("assets/spritesheet.png").await.unwrap();
@@ -147,13 +156,31 @@ async fn main() {
         ].into()),
     );
 
-    let mut game = Game::new(6, 3, RandomGenerator {seed: 2, num_mines:3});
+    let mut game = MinesweeperGame::new(6, 3, RandomGenerator {seed: 2, num_mines:3});
     let mut zoom_level: f32 = 1.0;
     let mut ui_width: f32 = 30.0;
     let mut ui_height: f32 = 16.0;
     let mut ui_generator_option: usize = 0;
     let mut ui_random_generator_seed = String::new();
-    let mut ui_random_generator_num_mines: usize = 99;
+    let mut ui_random_generator_num_mines: f32 = 99.0;
+    let mut show_settings = true;
+
+
+    // Make active and inactive colors the same
+    let window_style = root_ui().style_builder()
+        .color_inactive(Color::new(0.00, 0.32, 0.67, 0.00))
+        .color(Color::new(0.00, 0.32, 0.67, 0.00))
+        .text_color(WHITE)
+        .reverse_background_z(false)
+        .build();
+
+    let skin = Skin {
+        window_style,
+        ..root_ui().default_skin()
+    };
+
+    // Apply it
+    root_ui().push_skin(&skin);
 
     loop {
         clear_background(DARKBLUE);
@@ -168,7 +195,9 @@ async fn main() {
                 game.press_cell(x, y);
             }
             if is_mouse_button_down(MouseButton::Left) {
-                pressed_cell = Some((x, y));
+                if game.state == State::JustCreated || game.state == State::Playing {
+                    pressed_cell = Some((x, y));
+                }
             }
         }
         if let (_, wheel_y) = mouse_wheel() {
@@ -196,34 +225,75 @@ async fn main() {
             }
         }
 
-        draw_text(&format!("{:?}", mouse_position()), 10.0, 30.0, 30.0, BLACK);
+        root_ui().window(hash!(screen_width() as usize, screen_height() as usize, 0), Vec2::new(0.0, 0.0), Vec2::new(screen_width(), screen_height()), |ui| {
 
+            if show_settings {
+                let ui_size_range = 5.0..100.0;
 
-        root_ui().window(hash!(), Vec2::new(0.0, 0.0), Vec2::new(screen_width(), 100.0), |ui| {
-            let ui_size_range = 10f32..100f32;
-            Slider::new(hash!(), ui_size_range.clone())
-                .label("Grid Width")
-                .ui(ui, &mut ui_width);
-            ui_width = ui_width.round();
+                ui.group(hash!(screen_width() as usize, screen_height() as usize, 1), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
+                    ui.slider(hash!(), "Grid Width", ui_size_range.clone(), &mut ui_width);
+                    ui_width = ui_width.round();
 
-            Slider::new(hash!(), ui_size_range.clone())
-                .label("Grid Height")
-                .ui(ui, &mut ui_height);
-            ui_height = ui_height.round();
+                    ui.slider(hash!(), "Grid Height", ui_size_range.clone(), &mut ui_height);
+                    ui_height = ui_height.round();
 
-            let variants = vec!["RandomGenerator", "Scoop"];
-            ComboBox::new(hash!(), &variants)
-                .label("Generator Type")
-                .ui(ui, &mut ui_generator_option);
+                    let variants = vec!["Random", "Luck-free"];
+                    ui.combo_box(hash!(), "Generator Types", &variants, &mut ui_generator_option);
+                });
 
-            if ui.button(None, "Generate Grid") {
-                let random_generator = RandomGenerator {
-                    seed: hash!(ui_random_generator_seed.clone()),
-                    num_mines: ui_random_generator_num_mines,
-                };
-                game = Game::new(ui_width as usize, ui_height as usize, random_generator);
+                ui.group(hash!(screen_width() as usize, screen_height() as usize, 2), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
+                    match ui_generator_option {
+                        0 => {
+                            ui.input_text(hash!(), "RNG Seed", &mut ui_random_generator_seed);
+
+                            let ui_random_generator_num_mines_range = 1.0..(ui_width * ui_height - 9.0).min(999.0);
+                            ui.slider(hash!(), "Num Mines", ui_random_generator_num_mines_range, &mut ui_random_generator_num_mines);
+                            ui_random_generator_num_mines = ui_random_generator_num_mines.round();
+                        }
+                        _ => {}
+                    }
+                });
+
+                ui.group(hash!(), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
+                    if ui.button(None, "Generate Grid") {
+                        let random_generator = RandomGenerator {
+                            seed: hash!(ui_random_generator_seed.clone()),
+                            num_mines: ui_random_generator_num_mines as usize,
+                        };
+                        game = MinesweeperGame::new(ui_width as usize, ui_height as usize, random_generator);
+                    }
+                    if ui.button(None, "Hide Settings") {
+                        show_settings = false;
+                    }
+                });
+            } else {
+                if ui.button(None, "Show Settings") {
+                    show_settings = true;
+                }
+            }
+
+            ui.label(None, &format!("{:03} mines left", game.grid.count_remaining_flags()));
+            ui.label(None, &format!("{:?}", mouse_position()));
+
+            if ui.button(Vec2::new(2.0, screen_height() - 22.0), "+") {
+                    zoom_level += ZOOM_STEP;
+                    zoom_level = zoom_level.clamp(MIN_ZOOM, MAX_ZOOM);
+            }
+            if ui.button(Vec2::new(15.0, screen_height() - 22.0), "-") {
+                if scale > SCALE_THRESHOLD {
+                    zoom_level -= ZOOM_STEP;
+                    zoom_level = zoom_level.clamp(MIN_ZOOM, MAX_ZOOM);
+                }
             }
         });
+
+        if game.state == State::GameOver {
+            draw_centered_text("Game Over", 50.0, RED);
+        }
+
+        if game.state == State::YouWon {
+            draw_centered_text("You Won", 50.0, GREEN);
+        }
 
         next_frame().await
     }

@@ -4,7 +4,7 @@ mod grid;
 mod cell;
 mod bit_grid;
 mod minesweeper_grid;
-mod game;
+mod minesweeper_game;
 mod generator;
 mod random_generator;
 
@@ -13,6 +13,6 @@ pub use grid::{CELL_THEME, Grid};
 pub use minesweeper_grid::MinesweeperGrid;
 pub use bit_grid::BitGrid;
 
-pub use game::*;
+pub use minesweeper_game::*;
 pub use generator::*;
 pub use random_generator::*;

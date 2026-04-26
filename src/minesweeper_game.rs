@@ -1,21 +1,23 @@
 use crate::{CellContent, CellState, Generator, MinesweeperGrid};
 
-enum State {
+#[derive(PartialEq)]
+pub enum State {
     JustCreated,
     Playing,
     GameOver,
+    YouWon,
 }
 
-pub struct Game {
-    state: State,
+pub struct MinesweeperGame {
+    pub state: State,
     pub grid: MinesweeperGrid,
     generator: Box<dyn Generator>,
     // solver: Solver
 }
 
-impl Game {
-    pub fn new(width: usize, height: usize, generator: impl Generator + 'static) -> Game {
-        Game {
+impl MinesweeperGame {
+    pub fn new(width: usize, height: usize, generator: impl Generator + 'static) -> Self {
+        Self {
             state: State::JustCreated,
             grid: MinesweeperGrid::empty(width, height),
             generator: Box::new(generator),
@@ -37,10 +39,18 @@ impl Game {
                     _ => {}
                 }
             }
+            if self.grid.count_revealed_mines() > 0 {
+                self.state = State::GameOver;
+            }
+            if self.grid.is_solved() {
+                self.state = State::YouWon;
+            }
         }
     }
 
     pub fn flag(&mut self, x: usize, y: usize) {
+        if self.state == State::JustCreated || self.state == State::Playing {
         self.grid.flag(x, y);
+        }
     }
 }

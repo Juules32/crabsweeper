@@ -9,12 +9,24 @@ impl MinesweeperGrid {
         BitGrid::empty(width, height).into()
     }
     
-    fn count_mines(&self) -> usize {
+    pub fn count_mines(&self) -> usize {
         self.cells.iter().filter(|c| c.content == CellContent::Mine).count()
+    }
+
+    fn count_covered_and_flagged(&self) -> usize {
+        self.cells.iter().filter(|c| c.state == CellState::Covered || c.state == CellState::Flagged).count()
+    }
+
+    pub fn count_revealed_mines(&self) -> usize {
+        self.cells.iter().filter(|c| c.content == CellContent::Mine && c.state == CellState::Revealed).count()
     }
 
     fn count_flags(&self) -> usize {
         self.cells.iter().filter(|c| c.state == CellState::Flagged).count()
+    }
+
+    pub fn count_remaining_flags(&self) -> isize {
+        self.count_mines() as isize - self.count_flags() as isize
     }
 
     fn try_reveal_single(&mut self, x: usize, y: usize) {
@@ -88,6 +100,10 @@ impl MinesweeperGrid {
                 }
             })
             .collect()
+    }
+
+    pub fn is_solved(&self) -> bool {
+        self.count_covered_and_flagged() <= self.count_mines()
     }
 }
 

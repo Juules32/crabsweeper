@@ -1,4 +1,4 @@
-use crate::{Generator, MinesweeperGrid};
+use crate::{CellContent, CellState, Generator, MinesweeperGrid};
 
 enum State {
     JustCreated,
@@ -22,13 +22,21 @@ impl Game {
         }
     }
 
-    pub fn reveal(&mut self, x: usize, y: usize) {
+    pub fn press_cell(&mut self, x: usize, y: usize) {
         if let State::JustCreated = self.state {
             self.state = State::Playing;
             self.grid.update_content(self.generator.generate(self.grid.width, self.grid.height, x, y));
         }
         if let State::Playing = self.state {
+            let cell = self.grid.get(x, y);
+            if cell.state == CellState::Covered {
             self.grid.reveal(x, y);
+            } else {
+                match cell.content {
+                    CellContent::Number(_) => { self.grid.chord(x, y) },
+                    _ => {}
+                }
+            }
         }
     }
 

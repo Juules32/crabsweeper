@@ -50,6 +50,24 @@ impl MinesweeperGrid {
         }
     }
 
+    pub fn chord(&mut self, x: usize, y: usize) {
+        let cell = self.get(x, y);
+        let neighbors_coords = self.neighbor_coords(x, y);
+        if let CellContent::Number(n) = cell.content {
+            let num_flagged_neighbors = neighbors_coords
+                .iter()
+                .map(|&(nx, ny)| self.get(nx, ny))
+                .filter(|c| c.state == CellState::Flagged)
+                .count();
+
+            if num_flagged_neighbors == n as usize {
+                for (nx, ny) in neighbors_coords {
+                    self.try_reveal_single(nx, ny);
+                }
+            }
+        }
+    }
+
     pub fn flag(&mut self, x: usize, y: usize) {
         let cell = self.get_mut(x, y);
         match cell.state {

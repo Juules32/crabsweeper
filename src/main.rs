@@ -25,9 +25,9 @@ fn get_scale(grid: &MinesweeperGrid, zoom_level: f32) -> f32 {
     let grid_ratio = grid_width / grid_height;
 
     let unzoomed_scale = if screen_ratio >= grid_ratio {
-        screen_height / (grid_height * CELL_SIZE) + zoom_level
+        screen_height / (grid_height * CELL_SIZE)
     } else {
-        screen_width / (grid_width * CELL_SIZE) + zoom_level
+        screen_width / (grid_width * CELL_SIZE)
     };
     let initial_scale = unzoomed_scale * zoom_level * zoom_level;
     if initial_scale < SCALE_THRESHOLD {
@@ -165,12 +165,11 @@ async fn main() {
                 game.flag(x, y);
             }
             if is_mouse_button_released(MouseButton::Left) {
-                game.reveal(x, y);
+                game.press_cell(x, y);
             }
             if is_mouse_button_down(MouseButton::Left) {
                 pressed_cell = Some((x, y));
             }
-
         }
         if let (_, wheel_y) = mouse_wheel() {
             if wheel_y != 0.0 {

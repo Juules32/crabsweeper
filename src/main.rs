@@ -106,10 +106,9 @@ fn window_conf() -> Conf {
     }
 }
 
-fn draw_centered_text(text: &str, font_size: f32, color: Color) {
+fn draw_centered_text(text: &str, y: f32, font_size: f32, color: Color) {
     let t = measure_text(text, None, font_size as u16, 1.0);
     let x = (screen_width() - t.width) / 2.0;
-    let y = (screen_height() + font_size / 2.0) / 2.0;
     draw_text(text, x, y, font_size, color);
 }
 
@@ -234,15 +233,15 @@ async fn main() {
             }
 
             if game.state != State::JustCreated {
-                ui.label(None, &format!("{:02} unflagged crabs left", game.grid.count_remaining_flags()));
                 if ui.button(None, "Solve One Step") {
                     solver.solve(&mut game);
                 }
                 if ui.button(None, "Full Solve") {
 
                 }
+                ui.label(None, &format!("{:02} unflagged crabs left", game.grid.count_remaining_flags()));
             }
-            ui.label(None, &format!("{:?}", mouse_position()));
+            //ui.label(None, &format!("{:?}", mouse_position()));
 
             if ui.button(Vec2::new(2.0, screen_height() - 22.0), "+") {
                     zoom_level += ZOOM_STEP;
@@ -257,11 +256,11 @@ async fn main() {
         });
 
         if game.state == State::GameOver {
-            draw_centered_text("Game Over", 50.0, RED);
+            draw_centered_text("Game Over", screen_height() - 50.0, 50.0, RED);
         }
 
         if game.state == State::YouWon {
-            draw_centered_text("You Won", 50.0, GREEN);
+            draw_centered_text("You Won", screen_height() - 50.0, 50.0, GREEN);
         }
 
         next_frame().await

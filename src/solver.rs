@@ -7,6 +7,11 @@ pub struct Solver;
 
 impl Solver {
     pub fn solve(&self, game: &mut MinesweeperGame) {
+        if game.state != State::Playing {
+            println!("Game is not active!");
+            return;
+        }
+
         let revealed_number_coords: Vec<(usize, usize, &Cell)> = game.grid
             .iter_xy()
             .filter(|&(_, _, cell)| cell.state == CellState::Revealed && matches!(cell.content, CellContent::Number(_)))

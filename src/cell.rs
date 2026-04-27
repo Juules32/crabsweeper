@@ -26,6 +26,10 @@ impl Cell {
     pub fn should_propagate(&self) -> bool {
         self.state == CellState::Revealed && self.content == CellContent::Empty
     }
+    
+    pub fn is_flagged(&self) -> bool {
+        self.state == CellState::Flagged
+    }
 }
 
 impl From<CellContent> for Cell {

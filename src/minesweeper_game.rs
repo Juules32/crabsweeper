@@ -12,7 +12,6 @@ pub struct MinesweeperGame {
     pub state: State,
     pub grid: MinesweeperGrid,
     generator: Box<dyn Generator>,
-    // solver: Solver
 }
 
 impl MinesweeperGame {
@@ -24,7 +23,7 @@ impl MinesweeperGame {
         }
     }
 
-    pub fn press_cell(&mut self, x: usize, y: usize) {
+    pub fn reveal(&mut self, x: usize, y: usize) {
         if let State::JustCreated = self.state {
             self.state = State::Playing;
             self.grid.update_content(self.generator.generate(self.grid.width, self.grid.height, x, y));
@@ -41,8 +40,7 @@ impl MinesweeperGame {
             }
             if self.grid.count_revealed_mines() > 0 {
                 self.state = State::GameOver;
-            }
-            if self.grid.is_solved() {
+            } else if self.grid.is_solved() {
                 self.state = State::YouWon;
             }
         }

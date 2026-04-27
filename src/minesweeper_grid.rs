@@ -13,7 +13,7 @@ impl MinesweeperGrid {
         self.cells.iter().filter(|c| c.content == CellContent::Mine).count()
     }
 
-    fn count_covered_and_flagged(&self) -> usize {
+    pub fn count_covered_or_flagged(&self) -> usize {
         self.cells.iter().filter(|c| c.state == CellState::Covered || c.state == CellState::Flagged).count()
     }
 
@@ -27,6 +27,10 @@ impl MinesweeperGrid {
 
     pub fn count_remaining_flags(&self) -> isize {
         self.count_mines() as isize - self.count_flags() as isize
+    }
+
+    pub fn count_unflagged_mines(&self) -> usize {
+        self.cells.iter().filter(|c| c.content == CellContent::Mine && (c.state == CellState::Covered || c.state == CellState::Revealed)).count()
     }
 
     fn try_reveal_single(&mut self, x: usize, y: usize) {
@@ -103,7 +107,7 @@ impl MinesweeperGrid {
     }
 
     pub fn is_solved(&self) -> bool {
-        self.count_covered_and_flagged() <= self.count_mines()
+        self.count_covered_or_flagged() <= self.count_mines()
     }
 }
 

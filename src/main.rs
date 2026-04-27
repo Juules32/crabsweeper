@@ -1,10 +1,6 @@
-use std::cmp::max;
-use macroquad::miniquad::window::screen_size;
 use macroquad::prelude::*;
-use minesweeprs::{solve, MineCount, Rule};
-use crabsweeper::{Cell, CellContent, CellState, MinesweeperGame, Generator, MinesweeperGrid, RandomGenerator, State};
+use crabsweeper::{Cell, CellContent, CellState, MinesweeperGame, MinesweeperGrid, RandomGenerator, State, Solver};
 
-use macroquad::ui::widgets::{ComboBox, Slider};
 use macroquad::ui::{hash, root_ui, Skin};
 
 // How many pixels a cell is
@@ -124,54 +120,20 @@ async fn main() {
 
     spritesheet.set_filter(FilterMode::Nearest);
 
-    let output = solve(
-        &[
-            Rule::new(1, [0, 1]),
-            Rule::new(2, [0, 1, 2]),
-            Rule::new(3, [1, 2, 3]),
-            Rule::new(2, [2, 3, 4]),
-            Rule::new(2, [3, 4, 5, 6, 7]),
-            Rule::new(1, [6, 7, 8]),
-            Rule::new(1, [7, 8]),
-        ],
-        MineCount { total_cells: 85, total_mines: 10 },
-        &-1,
-    );
-    info!("{:?}", output);
-
-    // The board is solvable, so the below should hold:
-    assert_eq!(
-        output,
-        Ok([
-            (0, 0.0),
-            (1, 1.0),
-            (2, 1.0),
-            (3, 1.0),
-            (4, 0.0),
-            (5, 0.07792207792207793),
-            (6, 0.0),
-            (7, 0.9220779220779222),
-            (8, 0.07792207792207793),
-            (-1, 0.07792207792207792),
-        ].into()),
-    );
-
-    let mut game = MinesweeperGame::new(6, 3, RandomGenerator {seed: 2, num_mines:3});
+    let mut game = MinesweeperGame::new(9, 9, RandomGenerator { seed: 12345, num_mines: 10 });
+    let solver = Solver;
     let mut zoom_level: f32 = 1.0;
-    let mut ui_width: f32 = 30.0;
-    let mut ui_height: f32 = 16.0;
+    let mut ui_width: f32 = 9.0;
+    let mut ui_height: f32 = 9.0;
     let mut ui_generator_option: usize = 0;
     let mut ui_random_generator_seed = String::new();
-    let mut ui_random_generator_num_mines: f32 = 99.0;
+    let mut ui_random_generator_num_mines: f32 = 10.0;
     let mut show_settings = true;
-
 
     // Make active and inactive colors the same
     let window_style = root_ui().style_builder()
-        .color_inactive(Color::new(0.00, 0.32, 0.67, 0.00))
-        .color(Color::new(0.00, 0.32, 0.67, 0.00))
-        .text_color(WHITE)
-        .reverse_background_z(false)
+        .color_inactive(Color::new(0.0, 0.0, 0.0, 0.0))
+        .color(Color::new(0.0, 0.0, 0.0, 0.0))
         .build();
 
     let skin = Skin {
@@ -192,7 +154,7 @@ async fn main() {
                 game.flag(x, y);
             }
             if is_mouse_button_released(MouseButton::Left) {
-                game.press_cell(x, y);
+                game.reveal(x, y);
             }
             if is_mouse_button_down(MouseButton::Left) {
                 if game.state == State::JustCreated || game.state == State::Playing {
@@ -200,12 +162,11 @@ async fn main() {
                 }
             }
         }
-        if let (_, wheel_y) = mouse_wheel() {
-            if wheel_y != 0.0 {
-                if !(wheel_y.is_sign_negative() && scale <= SCALE_THRESHOLD) {
-                    zoom_level += wheel_y.signum() * ZOOM_STEP;
-                    zoom_level = zoom_level.clamp(MIN_ZOOM, MAX_ZOOM);
-                }
+        let (_, wheel_y) = mouse_wheel();
+        if wheel_y != 0.0 {
+            if !(wheel_y.is_sign_negative() && scale <= SCALE_THRESHOLD) {
+                zoom_level += wheel_y.signum() * ZOOM_STEP;
+                zoom_level = zoom_level.clamp(MIN_ZOOM, MAX_ZOOM);
             }
         }
 
@@ -228,7 +189,7 @@ async fn main() {
         root_ui().window(hash!(screen_width() as usize, screen_height() as usize, 0), Vec2::new(0.0, 0.0), Vec2::new(screen_width(), screen_height()), |ui| {
 
             if show_settings {
-                let ui_size_range = 5.0..100.0;
+                let ui_size_range = 5.0..30.0;
 
                 ui.group(hash!(screen_width() as usize, screen_height() as usize, 1), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
                     ui.slider(hash!(), "Grid Width", ui_size_range.clone(), &mut ui_width);
@@ -237,7 +198,7 @@ async fn main() {
                     ui.slider(hash!(), "Grid Height", ui_size_range.clone(), &mut ui_height);
                     ui_height = ui_height.round();
 
-                    let variants = vec!["Random", "Luck-free"];
+                    let variants = vec!["Random", "Solvable"];
                     ui.combo_box(hash!(), "Generator Types", &variants, &mut ui_generator_option);
                 });
 
@@ -246,7 +207,7 @@ async fn main() {
                         0 => {
                             ui.input_text(hash!(), "RNG Seed", &mut ui_random_generator_seed);
 
-                            let ui_random_generator_num_mines_range = 1.0..(ui_width * ui_height - 9.0).min(999.0);
+                            let ui_random_generator_num_mines_range = 1.0..(ui_width * ui_height - 9.0).min(99.0);
                             ui.slider(hash!(), "Num Mines", ui_random_generator_num_mines_range, &mut ui_random_generator_num_mines);
                             ui_random_generator_num_mines = ui_random_generator_num_mines.round();
                         }
@@ -272,7 +233,15 @@ async fn main() {
                 }
             }
 
-            ui.label(None, &format!("{:03} mines left", game.grid.count_remaining_flags()));
+            if game.state != State::JustCreated {
+                ui.label(None, &format!("{:02} unflagged crabs left", game.grid.count_remaining_flags()));
+                if ui.button(None, "Solve One Step") {
+                    solver.solve(&mut game);
+                }
+                if ui.button(None, "Full Solve") {
+
+                }
+            }
             ui.label(None, &format!("{:?}", mouse_position()));
 
             if ui.button(Vec2::new(2.0, screen_height() - 22.0), "+") {

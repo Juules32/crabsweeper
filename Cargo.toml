@@ -7,10 +7,10 @@ edition = "2024"
 minesweeprs = { path = "lib/minesweeprs" }
 macroquad = "0.4.14"
 unicode-width = "0.2.2"
-rand_chacha = "0.10.0"
-rand = "0.10.1"
+rand = { version = "0.10.1", default-features = false, features = ["std_rng"] }
+deterministic-hash = "1.0.2"
+rand_pcg = "0.10.2"
 
 [features]
 default = []
-wasm = []
 emoji_grid = []

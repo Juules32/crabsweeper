@@ -1,4 +1,4 @@
-use rand::rngs::StdRng;
+use rand_pcg::Pcg64;
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
 use crate::{BitGrid, Generator};
@@ -11,7 +11,7 @@ pub struct RandomGenerator {
 impl Generator for RandomGenerator {
     fn generate(&self, width: usize, height: usize, pressed_x: usize, pressed_y: usize) -> BitGrid {
         let mut bit_grid = BitGrid::empty(width, height);
-        let mut rng = StdRng::seed_from_u64(self.seed);
+        let mut rng = Pcg64::seed_from_u64(self.seed);
         let mut pressed_surrounding_coords = bit_grid.neighbor_coords(pressed_x, pressed_y);
         pressed_surrounding_coords.push((pressed_x, pressed_y));
         let mut positions: Vec<(usize, usize)> = bit_grid

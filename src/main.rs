@@ -1,6 +1,8 @@
 use macroquad::prelude::*;
 use crabsweeper::{Cell, CellContent, CellState, MinesweeperGame, MinesweeperGrid, RandomGenerator, State, Solver};
-
+use deterministic_hash::DeterministicHasher;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use macroquad::ui::{hash, root_ui, Skin};
 
 // How many pixels a cell is
@@ -106,6 +108,14 @@ fn window_conf() -> Conf {
     }
 }
 
+fn hash<T: Hash>(value: &T) -> u64 {
+    let hasher = DefaultHasher::new();
+    let mut hasher = DeterministicHasher::new(hasher);
+    value.hash(&mut hasher);
+    hasher.finish()
+}
+
+
 fn draw_centered_text(text: &str, y: f32, font_size: f32, color: Color) {
     let t = measure_text(text, None, font_size as u16, 1.0);
     let x = (screen_width() - t.width) / 2.0;
@@ -204,8 +214,7 @@ async fn main() {
                 ui.group(hash!(screen_width() as usize, screen_height() as usize, 2), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
                     match ui_generator_option {
                         0 => {
-                            ui.input_text(hash!(), "RNG Seed", &mut ui_random_generator_seed);
-
+                            ui.input_text(hash(&ui_random_generator_seed), "RNG Seed", &mut ui_random_generator_seed);
                             let ui_random_generator_num_mines_range = 1.0..(ui_width * ui_height - 9.0).min(99.0);
                             ui.slider(hash!(), "Num Mines", ui_random_generator_num_mines_range, &mut ui_random_generator_num_mines);
                             ui_random_generator_num_mines = ui_random_generator_num_mines.round();

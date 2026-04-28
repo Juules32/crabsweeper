@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use crabsweeper::{Cell, CellContent, CellState, MinesweeperGame, MinesweeperGrid, RandomGenerator, State, Solver};
+use crabsweeper::{Cell, CellContent, CellState, MinesweeperGame, MinesweeperGrid, RandomGenerator, State, Solver, SolveStatus};
 use deterministic_hash::DeterministicHasher;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -241,12 +241,22 @@ async fn main() {
                 }
             }
 
-            if game.state != State::JustCreated {
+            if game.state == State::Playing {
                 if ui.button(None, "Solve One Step") {
-                    solver.solve(&mut game);
+                    match solver.solve_one_step(&mut game.grid) {
+                        Ok(SolveStatus::Stuck) => { println!("Grid contains 50/50s") }
+                        Ok(SolveStatus::ProgressMade) => {}
+                        Ok(SolveStatus::Won) => { game.state = State::YouWon; }
+                        Err(_) => { println!("Something went wrong with the solver"); }
+                    }
                 }
                 if ui.button(None, "Full Solve") {
-
+                    match solver.solve(&mut game.grid) {
+                        Ok(SolveStatus::Stuck) => { println!("Grid contains 50/50s") }
+                        Ok(SolveStatus::ProgressMade) => {}
+                        Ok(SolveStatus::Won) => { game.state = State::YouWon; }
+                        Err(_) => { println!("Something went wrong with the solver"); }
+                    }
                 }
                 ui.label(None, &format!("{:02} unflagged crabs left", game.grid.count_remaining_flags()));
             }

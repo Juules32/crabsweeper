@@ -93,10 +93,10 @@ impl MinesweeperGrid {
         }
     }
 
-    pub fn update_content(&mut self, bit_grid: BitGrid) {
+    pub fn update_content(&mut self, minesweeper_grid: MinesweeperGrid) {
         self.cells = self.cells
             .iter()
-            .zip(MinesweeperGrid::from(bit_grid).cells.iter())
+            .zip(minesweeper_grid.cells.iter())
             .map(|(old, new)| {
                 Cell {
                     content: new.content,

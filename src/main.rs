@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use crabsweeper::{Cell, CellContent, CellState, MinesweeperGame, MinesweeperGrid, RandomGenerator, State, Solver, SolveStatus};
+use crabsweeper::{Cell, CellContent, CellState, MinesweeperGame, MinesweeperGrid, RandomGenerator, State, Solver, SolveStatus, Generator, NaiveSolvableGenerator};
 use deterministic_hash::DeterministicHasher;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -129,7 +129,6 @@ async fn main() {
 
     spritesheet.set_filter(FilterMode::Nearest);
 
-    let mut game = MinesweeperGame::new(9, 9, RandomGenerator { seed: 12345, num_mines: 10 });
     let solver = Solver;
     let mut zoom_level: f32 = 1.0;
     let mut ui_width: f32 = 9.0;
@@ -138,6 +137,8 @@ async fn main() {
     let mut ui_random_generator_seed = String::new();
     let mut ui_random_generator_num_mines: f32 = 10.0;
     let mut show_settings = true;
+
+    let mut game = MinesweeperGame::new(9, 9, Box::new(RandomGenerator { seed: hash(&ui_random_generator_seed), num_mines: 10 }));
 
     // Make active and inactive colors the same
     let window_style = root_ui().style_builder()
@@ -207,29 +208,25 @@ async fn main() {
                     ui.slider(hash!(), "Grid Height", ui_size_range.clone(), &mut ui_height);
                     ui_height = ui_height.round();
 
-                    let variants = vec!["Random", "Solvable"];
+                    let variants = vec!["Random", "Naïve Solvable"];
                     ui.combo_box(hash!(), "Generator Types", &variants, &mut ui_generator_option);
                 });
 
                 ui.group(hash!(screen_width() as usize, screen_height() as usize, 2), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
-                    match ui_generator_option {
-                        0 => {
-                            ui.input_text(hash(&ui_random_generator_seed), "RNG Seed", &mut ui_random_generator_seed);
-                            let ui_random_generator_num_mines_range = 1.0..(ui_width * ui_height - 9.0).min(99.0);
-                            ui.slider(hash!(), "Num Mines", ui_random_generator_num_mines_range, &mut ui_random_generator_num_mines);
-                            ui_random_generator_num_mines = ui_random_generator_num_mines.round();
-                        }
-                        _ => {}
-                    }
+                    ui.input_text(hash(&ui_random_generator_seed), "RNG Seed", &mut ui_random_generator_seed);
+                    let ui_random_generator_num_mines_range = 1.0..(ui_width * ui_height - 9.0).min(99.0);
+                    ui.slider(hash!(), "Num Mines", ui_random_generator_num_mines_range, &mut ui_random_generator_num_mines);
+                    ui_random_generator_num_mines = ui_random_generator_num_mines.round();
                 });
 
                 ui.group(hash!(), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
                     if ui.button(None, "Generate Grid") {
-                        let random_generator = RandomGenerator {
-                            seed: hash!(ui_random_generator_seed.clone()),
-                            num_mines: ui_random_generator_num_mines as usize,
+                        let generator: Box<dyn Generator> = match ui_generator_option {
+                            0 => Box::new(RandomGenerator { num_mines: ui_random_generator_num_mines as usize, seed: hash(&ui_random_generator_seed) }),
+                            1 => Box::new(NaiveSolvableGenerator { num_mines: ui_random_generator_num_mines as usize, seed: hash(&ui_random_generator_seed) }),
+                            _ => panic!("Selected non-existent generator option"),
                         };
-                        game = MinesweeperGame::new(ui_width as usize, ui_height as usize, random_generator);
+                        game = MinesweeperGame::new(ui_width as usize, ui_height as usize, generator);
                     }
                     if ui.button(None, "Hide Settings") {
                         show_settings = false;

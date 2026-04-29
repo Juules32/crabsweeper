@@ -1,5 +1,5 @@
-use crate::BitGrid;
+use crate::MinesweeperGrid;
 
 pub trait Generator {
-    fn generate(&self, width: usize, height: usize, pressed_x: usize, pressed_y: usize) -> BitGrid;
+    fn generate(&self, width: usize, height: usize, pressed_coords: (usize, usize)) -> MinesweeperGrid;
 }

@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use crabsweeper::{Cell, CellContent, CellState, MinesweeperGame, MinesweeperGrid, RandomGenerator, State, Solver, SolveStatus, Generator, NaiveSolvableGenerator};
+use crabsweeper::{Cell, CellContent, CellState, MinesweeperGame, MinesweeperGrid, RandomGenerator, State, Solver, SolveStatus, Generator, NaiveSolvableGenerator, OptimizedSolvableGenerator};
 use deterministic_hash::DeterministicHasher;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -208,7 +208,7 @@ async fn main() {
                     ui.slider(hash!(), "Grid Height", ui_size_range.clone(), &mut ui_height);
                     ui_height = ui_height.round();
 
-                    let variants = vec!["Random", "Naïve Solvable"];
+                    let variants = vec!["Random", "Naïve Solvable", "Optimized Solvable"];
                     ui.combo_box(hash!(), "Generator Types", &variants, &mut ui_generator_option);
                 });
 
@@ -219,11 +219,12 @@ async fn main() {
                     ui_random_generator_num_mines = ui_random_generator_num_mines.round();
                 });
 
-                ui.group(hash!(), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
+                ui.group(hash!(screen_width() as usize, screen_height() as usize, 3), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
                     if ui.button(None, "Generate Grid") {
                         let generator: Box<dyn Generator> = match ui_generator_option {
                             0 => Box::new(RandomGenerator { num_mines: ui_random_generator_num_mines as usize, seed: hash(&ui_random_generator_seed) }),
                             1 => Box::new(NaiveSolvableGenerator { num_mines: ui_random_generator_num_mines as usize, seed: hash(&ui_random_generator_seed) }),
+                            2 => Box::new(OptimizedSolvableGenerator { num_mines: ui_random_generator_num_mines as usize, seed: hash(&ui_random_generator_seed) }),
                             _ => panic!("Selected non-existent generator option"),
                         };
                         game = MinesweeperGame::new(ui_width as usize, ui_height as usize, generator);

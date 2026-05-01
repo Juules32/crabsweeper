@@ -11,9 +11,7 @@ impl Generator for NaiveSolvableGenerator {
     fn generate(&self, width: usize, height: usize, pressed_coords: (usize, usize)) -> MinesweeperGrid {
         let solver = Solver;
 
-
         let mut rng = Pcg64::seed_from_u64(self.seed);
-
 
         for _ in 0..100 {
             let random_generator = RandomGenerator {

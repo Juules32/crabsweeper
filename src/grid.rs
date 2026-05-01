@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use unicode_width::UnicodeWidthStr;
 
 pub struct CellTheme {
@@ -109,6 +110,19 @@ impl<T> Grid<T> {
 
         out.push_str(&bot);
         out
+    }
+    
+    pub fn generate_eligible_mine_coords(&self, pressed_x: usize, pressed_y: usize) -> Vec<(usize, usize)> {
+        let mut pressed_surrounding_coords = self.neighbor_coords(pressed_x, pressed_y);
+        pressed_surrounding_coords.push((pressed_x, pressed_y));
+
+        let forbidden: HashSet<_> = pressed_surrounding_coords.into_iter().collect();
+
+        self
+            .iter_xy()
+            .map(|(x, y, _)| (x, y))
+            .filter(|pos| !forbidden.contains(pos))
+            .collect()
     }
 }
 

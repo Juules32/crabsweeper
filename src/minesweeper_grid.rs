@@ -109,6 +109,14 @@ impl MinesweeperGrid {
     pub fn is_solved(&self) -> bool {
         self.count_covered_or_flagged() <= self.count_mines()
     }
+
+    pub fn from_mine_coords(width: usize, height: usize, mine_coords: &HashSet<(usize, usize)>) -> Self {
+        let mut bit_grid = BitGrid::empty(width, height);
+        for &(mine_x, mine_y) in mine_coords {
+            bit_grid.set(mine_x, mine_y, true);
+        }
+        bit_grid.into()
+    }
 }
 
 impl From<BitGrid> for MinesweeperGrid {

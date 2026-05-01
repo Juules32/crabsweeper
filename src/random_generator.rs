@@ -15,20 +15,11 @@ impl Generator for RandomGenerator {
 
         let mut bit_grid = BitGrid::empty(width, height);
         let mut rng = Pcg64::seed_from_u64(self.seed);
-        let mut pressed_surrounding_coords = bit_grid.neighbor_coords(pressed_x, pressed_y);
-        pressed_surrounding_coords.push((pressed_x, pressed_y));
 
-        let forbidden: HashSet<_> = pressed_surrounding_coords.into_iter().collect();
+        let mut eligible_mine_coords = bit_grid.generate_eligible_mine_coords(pressed_x, pressed_y);
+        eligible_mine_coords.shuffle(&mut rng);
 
-        let mut positions: Vec<_> = bit_grid
-            .iter_xy()
-            .map(|(x, y, _)| (x, y))
-            .filter(|pos| !forbidden.contains(pos))
-            .collect();
-
-        positions.shuffle(&mut rng);
-
-        for &(x, y) in positions.iter().take(self.num_mines) {
+        for &(x, y) in eligible_mine_coords.iter().take(self.num_mines) {
             bit_grid.set(x, y, true);
         }
 

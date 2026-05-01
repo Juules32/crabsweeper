@@ -1,4 +1,5 @@
 use core::fmt;
+use std::collections::HashSet;
 use crate::{Grid, CellContent, CELL_THEME};
 
 pub type BitGrid = Grid<bool>;
@@ -33,6 +34,7 @@ impl BitGrid {
             }
         }
     }
+
 }
 
 impl fmt::Display for BitGrid {

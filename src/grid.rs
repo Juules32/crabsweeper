@@ -27,59 +27,88 @@ pub const CELL_THEME: CellTheme = CellTheme {
     empty: " ",
 };
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub struct Position {
+    pub x: usize,
+    pub y: usize,
+}
+
 #[derive(Clone, Debug)]
 pub struct Grid<T> {
     pub width: usize,
     pub height: usize,
-    pub cells: Vec<T>,
+    cells: Vec<T>,
 }
 
 impl<T> Grid<T> {
-    pub fn index(&self, x: usize, y: usize) -> usize {
-        debug_assert!(x < self.width && y < self.height);
-        y * self.width + x
+    pub fn new(width: usize, height: usize, cells: Vec<T>) -> Grid<T> {
+        Self {
+            width,
+            height,
+            cells,
+        }
     }
 
-    pub fn set(&mut self, x: usize, y: usize, value: T) {
-        let index = self.index(x, y);
+    pub fn set_cells(&mut self, cells: Vec<T>) {
+        self.cells = cells;
+    }
+
+    pub fn index(&self, position: Position) -> usize {
+        debug_assert!(position.x < self.width && position.y < self.height);
+        position.y * self.width + position.x
+    }
+
+    pub fn set(&mut self, position: Position, value: T) {
+        let index = self.index(position);
         self.cells[index] = value;
     }
 
-    pub fn get(&self, x: usize, y: usize) -> &T {
-        &self.cells[self.index(x, y)]
+    pub fn get(&self, position: Position) -> &T {
+        &self.cells[self.index(position)]
     }
 
-    pub fn get_mut(&mut self, x: usize, y: usize) -> &mut T {
-        let index = self.index(x, y);
+    pub fn get_mut(&mut self, position: Position) -> &mut T {
+        let index = self.index(position);
         &mut self.cells[index]
     }
 
-    pub fn neighbor_coords(&self, x: usize, y: usize) -> Vec<(usize, usize)> {
-        let mut result = Vec::new();
-        for dx in [-1isize, 0, 1] {
-            for dy in [-1isize, 0, 1] {
+    pub fn neighbor_positions(&self, position: Position) -> Vec<Position> {
+        let mut neighbors = Vec::new();
+        for dx in [-1, 0, 1] {
+            for dy in [-1, 0, 1] {
                 if dx == 0 && dy == 0 {
                     continue;
                 }
-                let nx = x as isize + dx;
-                let ny = y as isize + dy;
+                let nx = position.x as isize + dx;
+                let ny = position.y as isize + dy;
                 if nx >= 0 && ny >= 0 && (nx as usize) < self.width && (ny as usize) < self.height {
-                    result.push((nx as usize, ny as usize));
+                    neighbors.push(Position { x: nx as usize, y: ny as usize });
                 }
             }
         }
-        result
+        neighbors
     }
 
-    pub fn iter_xy(&self) -> impl Iterator<Item = (usize, usize, &T)> {
-        self.cells.iter().enumerate().map(|(i, cell)| {
-            let x = i % self.width;
-            let y = i / self.width;
-            (x, y, cell)
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.cells.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.cells.iter_mut()
+    }
+
+    pub fn size(&self) -> usize {
+        self.cells.len()
+    }
+
+    pub fn iter_positions(&self) -> impl Iterator<Item = Position> {
+        (0..self.cells.len()).map(|i| Position {
+            x: i % self.width,
+            y: i / self.width,
         })
     }
 
-    pub fn draw_grid<F: Fn(usize, usize) -> String>(&self, get_symbol: F) -> String {
+    pub fn draw_grid<F: Fn(Position) -> String>(&self, get_symbol: F) -> String {
         let mut out = String::new();
 
         let top = horizontal_line(self.width, '┌', '┬', '┐');
@@ -93,7 +122,8 @@ impl<T> Grid<T> {
             let mut row = String::new();
             row.push('│');
             for x in 0..self.width {
-                let sym = get_symbol(x, y);
+                let position = Position { x, y };
+                let sym = get_symbol(position);
                 row.push(' ');
                 row.push_str(&format_cell(&sym));
                 row.push(' ');
@@ -112,15 +142,14 @@ impl<T> Grid<T> {
         out
     }
     
-    pub fn generate_eligible_mine_coords(&self, pressed_x: usize, pressed_y: usize) -> Vec<(usize, usize)> {
-        let mut pressed_surrounding_coords = self.neighbor_coords(pressed_x, pressed_y);
-        pressed_surrounding_coords.push((pressed_x, pressed_y));
+    pub fn generate_eligible_generator_positions(&self, pressed_position: Position) -> Vec<Position> {
+        let mut surrounding_positions = self.neighbor_positions(pressed_position);
+        surrounding_positions.push(pressed_position);
 
-        let forbidden: HashSet<_> = pressed_surrounding_coords.into_iter().collect();
+        let forbidden: HashSet<_> = surrounding_positions.into_iter().collect();
 
         self
-            .iter_xy()
-            .map(|(x, y, _)| (x, y))
+            .iter_positions()
             .filter(|pos| !forbidden.contains(pos))
             .collect()
     }

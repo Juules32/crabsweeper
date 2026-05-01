@@ -13,10 +13,10 @@ mod optimized_solvable_generator;
 mod presentation;
 mod util;
 
-pub use cell::{Cell, CellState, CellContent};
-pub use grid::{CELL_THEME, Grid};
-pub use minesweeper_grid::MinesweeperGrid;
-pub use bit_grid::BitGrid;
+pub use cell::*;
+pub use grid::*;
+pub use minesweeper_grid::*;
+pub use bit_grid::*;
 
 pub use minesweeper_game::*;
 pub use generator::*;

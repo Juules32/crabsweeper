@@ -1,40 +1,18 @@
 use macroquad::hash;
+use macroquad::miniquad::window::screen_size;
 use macroquad::prelude::*;
 use macroquad::ui::{root_ui, Skin};
-use crate::{hash, Cell, CellContent, CellState, Generator, MinesweeperGame, MinesweeperGrid, NaiveSolvableGenerator, OptimizedSolvableGenerator, RandomGenerator, SolveStatus, Solver, State};
+use crate::{hash, Cell, CellContent, CellState, Generator, MinesweeperGame, NaiveSolvableGenerator, OptimizedSolvableGenerator, RandomGenerator, SolveStatus, Solver, State};
+use crate::Position;
 
 const MIN_UI_WIDTH: f32 = 100.0;
 
-// How many pixels a cell is
 const CELL_SIZE: f32 = 16.0;
 const BOARD_PADDING: f32 = 116.0;
 const MIN_ZOOM: f32 = 0.1;
 const MAX_ZOOM: f32 = 1.5;
 const ZOOM_STEP: f32 = 0.08;
 const SCALE_THRESHOLD: f32 = 0.3;
-
-// Ratio of screen pixel to sprite pixel
-fn get_scale(grid: &MinesweeperGrid, zoom_level: f32) -> f32 {
-    let screen_width = screen_width() - BOARD_PADDING * 2.0;
-    let screen_height = screen_height() - BOARD_PADDING * 2.0;
-    let screen_ratio = screen_width / screen_height;
-
-    let grid_width = grid.width as f32;
-    let grid_height = grid.height as f32;
-    let grid_ratio = grid_width / grid_height;
-
-    let unzoomed_scale = if screen_ratio >= grid_ratio {
-        screen_height / (grid_height * CELL_SIZE)
-    } else {
-        screen_width / (grid_width * CELL_SIZE)
-    };
-    let initial_scale = unzoomed_scale * zoom_level * zoom_level;
-    if initial_scale < SCALE_THRESHOLD {
-        SCALE_THRESHOLD
-    } else {
-        initial_scale
-    }
-}
 
 fn get_spritesheet_index(cell: Cell, is_pressed_cell: bool) -> f32 {
     if is_pressed_cell && cell.state == CellState::Covered {
@@ -63,41 +41,6 @@ fn get_spritesheet_source(cell: Cell, is_pressed_cell: bool) -> Rect {
     }
 }
 
-fn get_screen_to_grid(grid: &MinesweeperGrid, screen_position: (f32, f32), scale: f32) -> Option<(usize, usize)> {
-    let screen_width = screen_width();
-    let screen_height = screen_height();
-
-    let offset_x = grid.width as f32 * CELL_SIZE * scale / 2.0;
-    let offset_y = grid.height as f32 * CELL_SIZE * scale / 2.0;
-
-    let grid_x = (screen_position.0 - (screen_width / 2.0) + offset_x) / (CELL_SIZE * scale);
-    let grid_y = (screen_position.1 - (screen_height / 2.0) + offset_y) / (CELL_SIZE * scale);
-
-    if grid_x < 0.0 || grid_x >= grid.width as f32 || grid_y < 0.0 || grid_y >= grid.height as f32 {
-        None
-    } else {
-        Some((grid_x as usize, grid_y as usize))
-    }
-}
-
-fn get_grid_to_screen(grid: &MinesweeperGrid, cell_position: (usize, usize), scale: f32) -> Option<(f32, f32)> {
-    if cell_position.0 >= grid.width || cell_position.1 >= grid.height {
-        return None;
-    }
-
-    let screen_width = screen_width();
-    let screen_height = screen_height();
-
-    let offset_x = grid.width as f32 * CELL_SIZE * scale / 2.0;
-    let offset_y = grid.height as f32 * CELL_SIZE * scale / 2.0;
-
-    let screen_x = cell_position.0 as f32 * scale * CELL_SIZE + screen_width / 2.0 - offset_x;
-    let screen_y = cell_position.1 as f32 * scale * CELL_SIZE + screen_height / 2.0 - offset_y;
-
-    Some((screen_x, screen_y))
-}
-
-
 fn draw_centered_text(text: &str, y: f32, font_size: f32, color: Color) {
     let t = measure_text(text, None, font_size as u16, 1.0);
     let x = (screen_width() - t.width) / 2.0;
@@ -106,20 +49,22 @@ fn draw_centered_text(text: &str, y: f32, font_size: f32, color: Color) {
 
 pub struct Presentation {
     zoom_level: f32,
-    ui_width: f32,
-    ui_height: f32,
-    ui_generator_option: usize,
-    ui_random_generator_seed: String,
-    ui_random_generator_num_mines: f32,
+    width_slider: f32,
+    height_slider: f32,
+    generator_option: usize,
+    generator_seed: String,
+    generator_num_mines: f32,
     show_settings: bool,
     scale: f32,
     spritesheet: Texture2D,
-    pressed_cell: Option<(usize, usize)>,
+    pressed_cell: Option<Position>,
     game: MinesweeperGame,
 }
 
 impl Presentation {
-    pub async fn new(game: MinesweeperGame) -> Self {
+    pub async fn new() -> Self {
+        let game = MinesweeperGame::new(9, 9, Box::new(RandomGenerator { seed: hash(&String::new()), num_mines: 10 }));
+
         // todo: make init instead of new? single responsibility principle?
         let spritesheet = load_texture("assets/spritesheet.png").await.unwrap();
         spritesheet.set_filter(FilterMode::Nearest);
@@ -136,62 +81,119 @@ impl Presentation {
 
         Self {
             zoom_level: 1.0,
-            ui_width: 9.0,
-            ui_height: 9.0,
-            ui_generator_option: 0,
-            ui_random_generator_seed: String::new(),
-            ui_random_generator_num_mines: 10.0,
+            width_slider: 9.0,
+            height_slider: 9.0,
+            generator_option: 0,
+            generator_seed: String::new(),
+            generator_num_mines: 10.0,
             show_settings: true,
-            scale: get_scale(&game.grid, 1.0),
+            scale: 1.0,
             spritesheet,
             pressed_cell: None,
             game,
         }
     }
 
-    pub async fn run(&mut self) {
+    pub async fn run() {
+        let mut presentation = Presentation::new().await;
+
         loop {
-            self.update_scale();
-            self.handle_input();
-            self.render_grid();
-            self.render_ui();
+            presentation.update_scale();
+            presentation.handle_input();
+            presentation.render_grid();
+            presentation.render_ui();
             next_frame().await
         }
     }
 
-    pub fn render_ui(&mut self) {
+    fn get_scale(&self) -> f32 {
+        let screen_width = screen_width() - BOARD_PADDING * 2.0;
+        let screen_height = screen_height() - BOARD_PADDING * 2.0;
+        let screen_ratio = screen_width / screen_height;
+
+        let grid_width = self.game.grid.width as f32;
+        let grid_height = self.game.grid.height as f32;
+        let grid_ratio = grid_width / grid_height;
+
+        let unzoomed_scale = if screen_ratio >= grid_ratio {
+            screen_height / (grid_height * CELL_SIZE)
+        } else {
+            screen_width / (grid_width * CELL_SIZE)
+        };
+        let initial_scale = unzoomed_scale * self.zoom_level * self.zoom_level;
+        if initial_scale < SCALE_THRESHOLD {
+            SCALE_THRESHOLD
+        } else {
+            initial_scale
+        }
+    }
+
+    fn get_screen_to_grid(&self) -> Option<Position> {
+        let (screen_width, screen_height) = screen_size();
+        let (mouse_x, mouse_y) = mouse_position();
+
+        let offset_x = self.game.grid.width as f32 * CELL_SIZE * self.scale / 2.0;
+        let offset_y = self.game.grid.height as f32 * CELL_SIZE * self.scale / 2.0;
+
+        let grid_x = (mouse_x - (screen_width / 2.0) + offset_x) / (CELL_SIZE * self.scale);
+        let grid_y = (mouse_y - (screen_height / 2.0) + offset_y) / (CELL_SIZE * self.scale);
+
+        if grid_x < 0.0 || grid_x >= self.game.grid.width as f32 || grid_y < 0.0 || grid_y >= self.game.grid.height as f32 {
+            None
+        } else {
+            Some(Position { x: grid_x as usize, y: grid_y as usize })
+        }
+    }
+
+    fn get_grid_to_screen(&self, position: Position) -> Option<(f32, f32)> {
+        if position.x >= self.game.grid.width || position.y >= self.game.grid.height {
+            return None;
+        }
+
+        let (screen_width, screen_height) = screen_size();
+
+        let offset_x = self.game.grid.width as f32 * CELL_SIZE * self.scale / 2.0;
+        let offset_y = self.game.grid.height as f32 * CELL_SIZE * self.scale / 2.0;
+
+        let screen_x = position.x as f32 * self.scale * CELL_SIZE + screen_width / 2.0 - offset_x;
+        let screen_y = position.y as f32 * self.scale * CELL_SIZE + screen_height / 2.0 - offset_y;
+
+        Some((screen_x, screen_y))
+    }
+
+    fn render_ui(&mut self) {
         root_ui().window(hash!(screen_width() as usize, screen_height() as usize, 0), Vec2::new(0.0, 0.0), Vec2::new(screen_width(), screen_height()), |ui| {
 
             if self.show_settings {
-                let ui_size_range = 5.0..30.0;
+                let size_range = 5.0..30.0;
 
                 ui.group(hash!(screen_width() as usize, screen_height() as usize, 1), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
-                    ui.slider(hash!(), "Grid Width", ui_size_range.clone(), &mut self.ui_width);
-                    self.ui_width = self.ui_width.round();
+                    ui.slider(hash!(), "Grid Width", size_range.clone(), &mut self.width_slider);
+                    self.width_slider = self.width_slider.round();
 
-                    ui.slider(hash!(), "Grid Height", ui_size_range.clone(), &mut self.ui_height);
-                    self.ui_height = self.ui_height.round();
+                    ui.slider(hash!(), "Grid Height", size_range.clone(), &mut self.height_slider);
+                    self.height_slider = self.height_slider.round();
 
                     let variants = vec!["Random", "Naïve Solvable", "Optimized Solvable"];
-                    ui.combo_box(hash!(), "Generator Types", &variants, &mut self.ui_generator_option);
+                    ui.combo_box(hash!(), "Generator Types", &variants, &mut self.generator_option);
                 });
 
                 ui.group(hash!(screen_width() as usize, screen_height() as usize, 2), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
-                    ui.input_text(hash(&self.ui_random_generator_seed), "RNG Seed", &mut self.ui_random_generator_seed);
-                    let ui_random_generator_num_mines_range = 1.0..(self.ui_width * self.ui_height - 9.0).min(99.0);
-                    ui.slider(hash!(), "Num Mines", ui_random_generator_num_mines_range, &mut self.ui_random_generator_num_mines);
-                    self.ui_random_generator_num_mines = self.ui_random_generator_num_mines.round();
+                    ui.input_text(hash(&self.generator_seed), "RNG Seed", &mut self.generator_seed);
+                    let random_generator_num_mines_range = 1.0..(self.width_slider * self.height_slider - 9.0).min(99.0);
+                    ui.slider(hash!(), "Num Mines", random_generator_num_mines_range, &mut self.generator_num_mines);
+                    self.generator_num_mines = self.generator_num_mines.round();
                 });
 
                 ui.group(hash!(screen_width() as usize, screen_height() as usize, 3), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
                     if ui.button(None, "Generate Grid") {
-                        let generator: Box<dyn Generator> = match self.ui_generator_option {
-                            0 => Box::new(RandomGenerator { num_mines: self.ui_random_generator_num_mines as usize, seed: hash(&self.ui_random_generator_seed) }),
-                            1 => Box::new(NaiveSolvableGenerator { num_mines: self.ui_random_generator_num_mines as usize, seed: hash(&self.ui_random_generator_seed) }),
-                            2 => Box::new(OptimizedSolvableGenerator { num_mines: self.ui_random_generator_num_mines as usize, seed: hash(&self.ui_random_generator_seed) }),
+                        let generator: Box<dyn Generator> = match self.generator_option {
+                            0 => Box::new(RandomGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
+                            1 => Box::new(NaiveSolvableGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
+                            2 => Box::new(OptimizedSolvableGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
                             _ => panic!("Selected non-existent generator option"),
                         };
-                        self.game = MinesweeperGame::new(self.ui_width as usize, self.ui_height as usize, generator);
+                        self.game = MinesweeperGame::new(self.width_slider as usize, self.height_slider as usize, generator);
                     }
                     if ui.button(None, "Hide Settings") {
                         self.show_settings = false;
@@ -238,21 +240,21 @@ impl Presentation {
         });
     }
 
-    pub fn render_grid(&self) {
+    fn render_grid(&self) {
 
         clear_background(DARKBLUE);
-        for (x, y, cell) in self.game.grid.iter_xy() {
+        for position in self.game.grid.iter_positions() {
             let is_pressed_cell = if let Some(pressed_cell) = self.pressed_cell {
-                (x, y) == pressed_cell
+                position == pressed_cell
             } else {
                 false
             };
             let params = DrawTextureParams {
                 dest_size: Some(Vec2 { x: CELL_SIZE * self.scale, y: CELL_SIZE * self.scale }),
-                source: Some(get_spritesheet_source(*cell, is_pressed_cell)),
+                source: Some(get_spritesheet_source(*self.game.grid.get(position), is_pressed_cell)),
                 ..Default::default()
             };
-            if let Some((drawn_x, drawn_y)) = get_grid_to_screen(&self.game.grid, (x, y), self.scale) {
+            if let Some((drawn_x, drawn_y)) = self.get_grid_to_screen(position) {
                 draw_texture_ex(&self.spritesheet, drawn_x, drawn_y, WHITE, params);
             }
         }
@@ -266,19 +268,19 @@ impl Presentation {
         }
     }
 
-    pub fn handle_input(&mut self) {
+    fn handle_input(&mut self) {
 
         self.pressed_cell = None;
-        if let Some((x, y)) = get_screen_to_grid(&self.game.grid, mouse_position(), self.scale) {
+        if let Some(position) = self.get_screen_to_grid() {
             if is_mouse_button_pressed(MouseButton::Right) {
-                self.game.flag(x, y);
+                self.game.flag(position);
             }
             if is_mouse_button_released(MouseButton::Left) {
-                self.game.reveal(x, y);
+                self.game.reveal(position);
             }
             if is_mouse_button_down(MouseButton::Left) {
                 if self.game.state == State::JustCreated || self.game.state == State::Playing {
-                    self.pressed_cell = Some((x, y));
+                    self.pressed_cell = Some(position);
                 }
             }
         }
@@ -292,7 +294,7 @@ impl Presentation {
 
     }
 
-    pub fn update_scale(&mut self) {
-        self.scale = get_scale(&self.game.grid, self.zoom_level);
+    fn update_scale(&mut self) {
+        self.scale = self.get_scale();
     }
 }

@@ -1,7 +1,7 @@
 use minesweeprs::{InconsistencyError, MineCount, Rule};
-use crate::{Cell, CellContent, CellState, MinesweeperGrid};
+use crate::{CellContent, CellState, MinesweeperGrid, Position};
 
-const OTHER_TAG: (usize, usize) = (1000, 1000);
+const OTHER_TAG: Position = Position { x: 1000, y: 1000 };
 const MAX_SOLVING_ITERATIONS: usize = 100;
 
 pub enum SolveStatus {
@@ -15,20 +15,23 @@ pub struct Solver;
 impl Solver {
     pub fn solve_one_step(grid: &mut MinesweeperGrid) -> Result<SolveStatus, InconsistencyError> {
         let mut is_stuck = true;
-        let revealed_number_coords: Vec<(usize, usize, &Cell)> = grid
-            .iter_xy()
-            .filter(|&(_, _, cell)| cell.state == CellState::Revealed && matches!(cell.content, CellContent::Number(_)))
+        let revealed_number_positions: Vec<Position> = grid
+            .iter_positions()
+            .filter(|&position| {
+                let cell = grid.get(position);
+                cell.state == CellState::Revealed && matches!(cell.content, CellContent::Number(_))
+            })
             .collect();
 
-        let covered_neighbor_coords: Vec<Vec<(usize, usize)>> = revealed_number_coords
+        let covered_neighbor_positions: Vec<Vec<Position>> = revealed_number_positions
             .iter()
-            .map(|&(x, y, _)| {
-                grid.neighbor_coords(x, y)
+            .map(|&position| {
+                grid.neighbor_positions(position)
                     .iter()
-                    .filter_map(|&(x, y)| {
-                        let cell = grid.get(x, y);
+                    .filter_map(|&position| {
+                        let cell = grid.get(position);
                         if cell.state == CellState::Covered || cell.state == CellState::Flagged {
-                            Some((x, y))
+                            Some(position)
                         } else {
                             None
                         }
@@ -37,14 +40,14 @@ impl Solver {
             })
             .collect();
 
-        let rules: Vec<Rule<(usize, usize)>> = revealed_number_coords
+        let rules: Vec<Rule<Position>> = revealed_number_positions
             .iter()
-            .zip(covered_neighbor_coords)
+            .zip(covered_neighbor_positions)
             .filter(|(_, covered_neighbors)| {
                 !covered_neighbors.is_empty()
             })
-            .map(|(&(_, _, cell), covered_neighbors)| Rule::new(
-                if let CellContent::Number(n) = cell.content {
+            .map(|(&position, covered_neighbors)| Rule::new(
+                if let CellContent::Number(n) = grid.get(position).content {
                     n as usize
                 } else {
                     0
@@ -53,7 +56,7 @@ impl Solver {
             ))
             .collect();
 
-        let total_cells = grid.cells.len();
+        let total_cells = grid.size();
         let total_mines = grid.count_mines();
         let output = minesweeprs::solve(
             &rules,
@@ -64,16 +67,15 @@ impl Solver {
         //println!("{rules:?}");
         //println!("{output:?}");
 
-        for (key, value) in output {
-            let (x, y) = key;
-            if key != OTHER_TAG {
+        for (position, value) in output {
+            if position != OTHER_TAG {
                 if value == 0.0 {
-                    grid.reveal(x, y);
+                    grid.reveal(position);
                     is_stuck = false;
                 }
                 if value == 1.0 {
-                    if !grid.get(x, y).is_flagged() {
-                        grid.flag(x, y);
+                    if !grid.get(position).is_flagged() {
+                        grid.flag(position);
                         is_stuck = false;
                     }
                 }

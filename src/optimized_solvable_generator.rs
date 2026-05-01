@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use rand::SeedableRng;
 use rand::seq::IteratorRandom;
 use rand_pcg::Pcg64;
-use crate::{BitGrid, Generator, MinesweeperGrid, Solver};
+use crate::{BitGrid, Generator, MinesweeperGrid, Position, Solver};
 
 pub struct OptimizedSolvableGenerator {
     pub num_mines: usize,
@@ -10,35 +10,33 @@ pub struct OptimizedSolvableGenerator {
 }
 
 impl Generator for OptimizedSolvableGenerator {
-    fn generate(&self, width: usize, height: usize, pressed_coords: (usize, usize)) -> MinesweeperGrid {
-        let (pressed_x, pressed_y) = pressed_coords;
+    fn generate(&self, width: usize, height: usize, pressed_position: Position) -> MinesweeperGrid {
         let mut rng = Pcg64::seed_from_u64(self.seed);
-
         let mut grid = MinesweeperGrid::from(BitGrid::empty(width, height));
-        let eligible_mine_coords: HashSet<(usize, usize)> = grid.generate_eligible_mine_coords(pressed_x, pressed_y).into_iter().collect();
-        let mut current_eligible_mine_coords = eligible_mine_coords.clone();
-        let mut mines: HashSet<(usize, usize)> = HashSet::new();
-        let mut rejected_mines: HashSet<(usize, usize)> = HashSet::new();
+        let eligible_generator_positions: HashSet<Position> = grid.generate_eligible_generator_positions(pressed_position).into_iter().collect();
+        let mut current_eligible_generator_positions = eligible_generator_positions.clone();
+        let mut mines: HashSet<Position> = HashSet::new();
+        let mut rejected_mines: HashSet<Position> = HashSet::new();
         let mut num_failed_tries = 0;
 
         while mines.len() < self.num_mines {
-            if let Some(&eligible_mine_coord) = current_eligible_mine_coords.iter().choose(&mut rng) {
-                mines.insert(eligible_mine_coord);
-                current_eligible_mine_coords.remove(&eligible_mine_coord);
-                grid = MinesweeperGrid::from_mine_coords(width, height, &mines);
-                grid.reveal(pressed_x, pressed_y);
-                println!("{grid}");
+            if let Some(&eligible_mine_position) = current_eligible_generator_positions.iter().choose(&mut rng) {
+                mines.insert(eligible_mine_position);
+                current_eligible_generator_positions.remove(&eligible_mine_position);
+                grid = MinesweeperGrid::from_mine_positions(width, height, &mines);
+                grid.reveal(pressed_position);
+                //println!("{grid}");
                 if Solver::is_solvable(&grid) {
-                    current_eligible_mine_coords.extend(&rejected_mines);
+                    current_eligible_generator_positions.extend(&rejected_mines);
                     rejected_mines.clear();
                 } else {
-                    mines.remove(&eligible_mine_coord);
-                    rejected_mines.insert(eligible_mine_coord);
+                    mines.remove(&eligible_mine_position);
+                    rejected_mines.insert(eligible_mine_position);
                 }
             } else {
                 mines.clear();
                 rejected_mines.clear();
-                current_eligible_mine_coords = eligible_mine_coords.clone();
+                current_eligible_generator_positions = eligible_generator_positions.clone();
                 num_failed_tries += 1;
                 if num_failed_tries >= 100 {
                     panic!("Too many tries")

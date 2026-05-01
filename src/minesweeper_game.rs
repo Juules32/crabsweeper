@@ -1,4 +1,4 @@
-use crate::{CellContent, CellState, Generator, MinesweeperGrid};
+use crate::{CellContent, CellState, Generator, MinesweeperGrid, Position};
 
 #[derive(PartialEq)]
 pub enum State {
@@ -25,19 +25,19 @@ impl MinesweeperGame {
         }
     }
 
-    pub fn reveal(&mut self, x: usize, y: usize) {
+    pub fn reveal(&mut self, position: Position) {
         self.status_message = String::new();
         if let State::JustCreated = self.state {
             self.state = State::Playing;
-            self.grid.update_content(self.generator.generate(self.grid.width, self.grid.height, (x, y)));
+            self.grid.update_content(self.generator.generate(self.grid.width, self.grid.height, position));
         }
         if let State::Playing = self.state {
-            let cell = self.grid.get(x, y);
+            let cell = self.grid.get(position);
             if cell.state == CellState::Covered {
-            self.grid.reveal(x, y);
+            self.grid.reveal(position);
             } else {
                 match cell.content {
-                    CellContent::Number(_) => { self.grid.chord(x, y) },
+                    CellContent::Number(_) => { self.grid.chord(position) },
                     _ => {}
                 }
             }
@@ -50,10 +50,10 @@ impl MinesweeperGame {
         }
     }
 
-    pub fn flag(&mut self, x: usize, y: usize) {
+    pub fn flag(&mut self, position: Position) {
         self.status_message = String::new();
         if self.state == State::JustCreated || self.state == State::Playing {
-        self.grid.flag(x, y);
+        self.grid.flag(position);
         }
     }
 }

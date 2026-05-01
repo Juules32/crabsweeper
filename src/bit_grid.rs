@@ -1,33 +1,29 @@
 use core::fmt;
-use crate::{Grid, CellContent, CELL_THEME};
+use crate::{Grid, CellContent, CELL_THEME, Position};
 
 pub type BitGrid = Grid<bool>;
 
 impl BitGrid {
     pub fn empty(width: usize, height: usize) -> Self {
-        Self {
-            width,
-            height,
-            cells: vec![false; width * height],
-        }
+        Grid::new(width, height, vec![false; width * height])
     }
 
     pub fn count_bits(&self) -> usize {
-        self.cells.iter().filter(|b| **b).count()
+        self.iter().filter(|&&b| b).count()
     }
 
-    pub fn count_adjacent_bits(&self, x: usize, y: usize) -> usize {
-        self.neighbor_coords(x, y)
+    pub fn count_adjacent_bits(&self, position: Position) -> usize {
+        self.neighbor_positions(position)
             .iter()
-            .filter(|&&(nx, ny)| *self.get(nx, ny))
+            .filter(|&&np| *self.get(np))
             .count()
     }
 
-    pub fn get_cell_content(&self, x: usize, y: usize) -> CellContent {
-        if *self.get(x, y) {
+    pub fn get_cell_content(&self, position: Position) -> CellContent {
+        if *self.get(position) {
             CellContent::Mine
         } else {
-            match self.count_adjacent_bits(x, y) {
+            match self.count_adjacent_bits(position) {
                 0 => CellContent::Empty,
                 n => CellContent::Number(n as u8),
             }
@@ -41,8 +37,8 @@ impl fmt::Display for BitGrid {
         writeln!(
             f,
             "{}",
-            self.draw_grid(|x, y| {
-                if *self.get(x, y) {
+            self.draw_grid(|position| {
+                if *self.get(position) {
                     CELL_THEME.mine.to_string()
                 } else {
                     CELL_THEME.empty.to_string()

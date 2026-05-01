@@ -1,6 +1,6 @@
 use core::fmt;
 use std::collections::{HashSet, VecDeque};
-use crate::{BitGrid, Cell, CellContent, CellState, Grid, CELL_THEME};
+use crate::{BitGrid, Cell, CellContent, CellState, Grid, Position, CELL_THEME};
 
 pub type MinesweeperGrid = Grid<Cell>;
 
@@ -10,19 +10,19 @@ impl MinesweeperGrid {
     }
     
     pub fn count_mines(&self) -> usize {
-        self.cells.iter().filter(|c| c.content == CellContent::Mine).count()
+        self.iter().filter(|c| c.content == CellContent::Mine).count()
     }
 
     pub fn count_covered_or_flagged(&self) -> usize {
-        self.cells.iter().filter(|c| c.state == CellState::Covered || c.state == CellState::Flagged).count()
+        self.iter().filter(|c| c.state == CellState::Covered || c.state == CellState::Flagged).count()
     }
 
     pub fn count_revealed_mines(&self) -> usize {
-        self.cells.iter().filter(|c| c.content == CellContent::Mine && c.state == CellState::Revealed).count()
+        self.iter().filter(|c| c.content == CellContent::Mine && c.state == CellState::Revealed).count()
     }
 
     fn count_flags(&self) -> usize {
-        self.cells.iter().filter(|c| c.state == CellState::Flagged).count()
+        self.iter().filter(|c| c.state == CellState::Flagged).count()
     }
 
     pub fn count_remaining_flags(&self) -> isize {
@@ -30,62 +30,62 @@ impl MinesweeperGrid {
     }
 
     pub fn count_unflagged_mines(&self) -> usize {
-        self.cells.iter().filter(|c| c.content == CellContent::Mine && (c.state == CellState::Covered || c.state == CellState::Revealed)).count()
+        self.iter().filter(|c| c.content == CellContent::Mine && (c.state == CellState::Covered || c.state == CellState::Revealed)).count()
     }
 
-    fn try_reveal_single(&mut self, x: usize, y: usize) {
-        let cell = self.get_mut(x, y);
+    fn try_reveal_single(&mut self, position: Position) {
+        let cell = self.get_mut(position);
         if cell.can_be_revealed() {
             cell.state = CellState::Revealed;
         }
     }
 
-    pub fn reveal(&mut self, x: usize, y: usize) {
+    pub fn reveal(&mut self, position: Position) {
         let mut stack = VecDeque::new();
-        stack.push_back((x, y));
+        stack.push_back(position);
         let mut visited_cells = HashSet::new();
 
-        while let Some((x, y)) = stack.pop_front() {
-            if visited_cells.contains(&(x, y)) {
+        while let Some(position) = stack.pop_front() {
+            if visited_cells.contains(&position) {
                 continue;
             }
-            visited_cells.insert((x, y));
+            visited_cells.insert(position);
             
-            self.try_reveal_single(x, y);
+            self.try_reveal_single(position);
 
-            if !self.get(x, y).should_propagate() {
+            if !self.get(position).should_propagate() {
                 continue;
             }
 
-            for (nx, ny) in self.neighbor_coords(x, y) {
-                let neighbor_cell = self.get(nx, ny);
+            for np in self.neighbor_positions(position) {
+                let neighbor_cell = self.get(np);
                 if neighbor_cell.can_be_revealed() {
-                    stack.push_back((nx, ny));
+                    stack.push_back(np);
                 }
             }
         }
     }
 
-    pub fn chord(&mut self, x: usize, y: usize) {
-        let cell = self.get(x, y);
-        let neighbors_coords = self.neighbor_coords(x, y);
+    pub fn chord(&mut self, position: Position) {
+        let cell = self.get(position);
+        let neighbor_positions = self.neighbor_positions(position);
         if let CellContent::Number(n) = cell.content {
-            let num_flagged_neighbors = neighbors_coords
+            let num_flagged_neighbors = neighbor_positions
                 .iter()
-                .map(|&(nx, ny)| self.get(nx, ny))
+                .map(|&np| self.get(np))
                 .filter(|c| c.state == CellState::Flagged)
                 .count();
 
             if num_flagged_neighbors == n as usize {
-                for (nx, ny) in neighbors_coords {
-                    self.try_reveal_single(nx, ny);
+                for np in neighbor_positions {
+                    self.try_reveal_single(np);
                 }
             }
         }
     }
 
-    pub fn flag(&mut self, x: usize, y: usize) {
-        let cell = self.get_mut(x, y);
+    pub fn flag(&mut self, position: Position) {
+        let cell = self.get_mut(position);
         match cell.state {
             CellState::Covered => cell.state = CellState::Flagged,
             CellState::Revealed => (),
@@ -94,9 +94,9 @@ impl MinesweeperGrid {
     }
 
     pub fn update_content(&mut self, minesweeper_grid: MinesweeperGrid) {
-        self.cells = self.cells
+        self.set_cells(self
             .iter()
-            .zip(minesweeper_grid.cells.iter())
+            .zip(minesweeper_grid.iter())
             .map(|(old, new)| {
                 Cell {
                     content: new.content,
@@ -104,22 +104,23 @@ impl MinesweeperGrid {
                 }
             })
             .collect()
+        )
     }
 
     pub fn is_solved(&self) -> bool {
         self.count_covered_or_flagged() <= self.count_mines()
     }
 
-    pub fn from_mine_coords(width: usize, height: usize, mine_coords: &HashSet<(usize, usize)>) -> Self {
+    pub fn from_mine_positions(width: usize, height: usize, mine_positions: &HashSet<Position>) -> Self {
         let mut bit_grid = BitGrid::empty(width, height);
-        for &(mine_x, mine_y) in mine_coords {
-            bit_grid.set(mine_x, mine_y, true);
+        for &mp in mine_positions {
+            bit_grid.set(mp, true);
         }
         bit_grid.into()
     }
 
     pub fn reveal_mines(&mut self) {
-        for cell in self.cells.iter_mut() {
+        for cell in self.iter_mut() {
             if cell.content == CellContent::Mine {
                 cell.reveal();
             }
@@ -135,15 +136,11 @@ impl From<BitGrid> for MinesweeperGrid {
             .map(|i| {
                 let x = i % width;
                 let y = i / width;
-                bit_grid.get_cell_content(x, y).into()
+                bit_grid.get_cell_content(Position { x, y }).into()
             })
             .collect();
 
-        Self {
-            width,
-            height,
-            cells,
-        }
+        Self::new(width, height, cells)
     }
 }
 
@@ -152,8 +149,8 @@ impl fmt::Display for MinesweeperGrid {
         writeln!(
             f,
             "{}",
-            self.draw_grid(|x, y| {
-                let Cell { content, state } = self.get(x, y);
+            self.draw_grid(|position| {
+                let Cell { content, state } = self.get(position);
                 match state {
                     CellState::Covered => CELL_THEME.covered.to_string(),
                     CellState::Flagged => CELL_THEME.flag.to_string(),

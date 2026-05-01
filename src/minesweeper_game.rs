@@ -39,6 +39,7 @@ impl MinesweeperGame {
                 }
             }
             if self.grid.count_revealed_mines() > 0 {
+                self.grid.reveal_mines();
                 self.state = State::GameOver;
             } else if self.grid.is_solved() {
                 self.state = State::YouWon;

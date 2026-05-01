@@ -117,6 +117,14 @@ impl MinesweeperGrid {
         }
         bit_grid.into()
     }
+
+    pub fn reveal_mines(&mut self) {
+        for cell in self.cells.iter_mut() {
+            if cell.content == CellContent::Mine {
+                cell.reveal();
+            }
+        }
+    }
 }
 
 impl From<BitGrid> for MinesweeperGrid {

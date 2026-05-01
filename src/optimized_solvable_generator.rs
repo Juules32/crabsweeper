@@ -1,8 +1,8 @@
 use std::collections::HashSet;
-use rand::{Rng, SeedableRng};
-use rand::seq::{IteratorRandom, SliceRandom};
+use rand::SeedableRng;
+use rand::seq::IteratorRandom;
 use rand_pcg::Pcg64;
-use crate::{BitGrid, Generator, MinesweeperGrid, RandomGenerator, Solver};
+use crate::{BitGrid, Generator, MinesweeperGrid, Solver};
 
 pub struct OptimizedSolvableGenerator {
     pub num_mines: usize,

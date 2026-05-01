@@ -30,6 +30,12 @@ impl Cell {
     pub fn is_flagged(&self) -> bool {
         self.state == CellState::Flagged
     }
+
+    pub fn reveal(&mut self) {
+        if self.can_be_revealed() {
+            self.state = CellState::Revealed;
+        }
+    }
 }
 
 impl From<CellContent> for Cell {

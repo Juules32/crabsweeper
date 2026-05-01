@@ -10,6 +10,7 @@ mod random_generator;
 mod solver;
 mod naive_solvable_generator;
 mod optimized_solvable_generator;
+mod user_interface;
 
 pub use cell::{Cell, CellState, CellContent};
 pub use grid::{CELL_THEME, Grid};
@@ -22,3 +23,4 @@ pub use random_generator::*;
 pub use naive_solvable_generator::*;
 pub use optimized_solvable_generator::*;
 pub use solver::*;
+pub use user_interface::*;

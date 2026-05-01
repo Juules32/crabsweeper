@@ -3,7 +3,9 @@ use crabsweeper::{Cell, CellContent, CellState, MinesweeperGame, MinesweeperGrid
 use deterministic_hash::DeterministicHasher;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use macroquad::miniquad::conf::Icon;
 use macroquad::ui::{hash, root_ui, Skin};
+use image::{GenericImageView, imageops::FilterType};
 
 // How many pixels a cell is
 const CELL_SIZE: f32 = 16.0;
@@ -98,12 +100,46 @@ fn get_grid_to_screen(grid: &MinesweeperGrid, cell_position: (usize, usize), sca
     Some((screen_x, screen_y))
 }
 
+pub fn load_icon_from_png(path: &str) -> Icon {
+    let img = image::open(path)
+        .expect("Failed to load icon PNG")
+        .to_rgba8();
+
+    fn resize(img: &image::RgbaImage, size: u32) -> Vec<u8> {
+        let resized = image::imageops::resize(
+            img,
+            size,
+            size,
+            FilterType::Lanczos3,
+        );
+        resized.into_raw()
+    }
+
+    fn into_array<const N: usize>(v: Vec<u8>) -> [u8; N] {
+        let mut arr = [0u8; N];
+        arr.copy_from_slice(&v[..N]);
+        arr
+    }
+
+    let small = into_array(resize(&img, 16));
+    let medium = into_array(resize(&img, 32));
+    let big = into_array(resize(&img, 64));
+
+    Icon {
+        small,
+        medium,
+        big,
+    }
+}
+
 fn window_conf() -> Conf {
     Conf {
         window_title: "Crabsweeper".to_string(),
         window_width: 800,
         window_height: 600,
         window_resizable: true,
+        #[cfg(not(target_arch = "wasm32"))]
+        icon: Some(load_icon_from_png("assets/icon64.png")),
         ..Default::default()
     }
 }
@@ -124,6 +160,7 @@ fn draw_centered_text(text: &str, y: f32, font_size: f32, color: Color) {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+
     let spritesheet: Texture2D = load_texture("assets/spritesheet.png").await.unwrap();
     let mut pressed_cell: Option<(usize, usize)>;
 
@@ -136,11 +173,11 @@ async fn main() {
     let mut ui_generator_option: usize = 0;
     let mut ui_random_generator_seed = String::new();
     let mut ui_random_generator_num_mines: f32 = 10.0;
+    let mut ui_status_message = String::new();
     let mut show_settings = true;
 
     let mut game = MinesweeperGame::new(9, 9, Box::new(RandomGenerator { seed: hash(&ui_random_generator_seed), num_mines: 10 }));
 
-    // Make active and inactive colors the same
     let window_style = root_ui().style_builder()
         .color_inactive(Color::new(0.0, 0.0, 0.0, 0.0))
         .color(Color::new(0.0, 0.0, 0.0, 0.0))
@@ -151,7 +188,6 @@ async fn main() {
         ..root_ui().default_skin()
     };
 
-    // Apply it
     root_ui().push_skin(&skin);
 
     loop {
@@ -161,9 +197,11 @@ async fn main() {
 
         if let Some((x, y)) = get_screen_to_grid(&game.grid, mouse_position(), scale) {
             if is_mouse_button_pressed(MouseButton::Right) {
+                ui_status_message = String::new();
                 game.flag(x, y);
             }
             if is_mouse_button_released(MouseButton::Left) {
+                ui_status_message = String::new();
                 game.reveal(x, y);
             }
             if is_mouse_button_down(MouseButton::Left) {
@@ -242,23 +280,23 @@ async fn main() {
             if game.state == State::Playing {
                 if ui.button(None, "Solve One Step") {
                     match solver.solve_one_step(&mut game.grid) {
-                        Ok(SolveStatus::Stuck) => { println!("Grid contains 50/50s") }
+                        Ok(SolveStatus::Stuck) => { ui_status_message = String::from("Grid contains 50/50s"); }
                         Ok(SolveStatus::ProgressMade) => {}
                         Ok(SolveStatus::Won) => { game.state = State::YouWon; }
-                        Err(_) => { println!("Something went wrong with the solver"); }
+                        Err(_) => { ui_status_message = String::from("Something went wrong with the solver"); }
                     }
                 }
                 if ui.button(None, "Full Solve") {
                     match solver.solve(&mut game.grid) {
-                        Ok(SolveStatus::Stuck) => { println!("Grid contains 50/50s") }
+                        Ok(SolveStatus::Stuck) => { ui_status_message = String::from("Grid contains 50/50s"); }
                         Ok(SolveStatus::ProgressMade) => {}
                         Ok(SolveStatus::Won) => { game.state = State::YouWon; }
-                        Err(_) => { println!("Something went wrong with the solver"); }
+                        Err(_) => { ui_status_message = String::from("Something went wrong with the solver"); }
                     }
                 }
                 ui.label(None, &format!("{:02} unflagged crabs left", game.grid.count_remaining_flags()));
+                ui.label(None, &ui_status_message);
             }
-            //ui.label(None, &format!("{:?}", mouse_position()));
 
             if ui.button(Vec2::new(2.0, screen_height() - 22.0), "+") {
                     zoom_level += ZOOM_STEP;

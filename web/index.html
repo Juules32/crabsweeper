@@ -17,13 +17,21 @@
             z-index: 0;
         }
     </style>
+    <link rel="icon" type="image/png" href="assets/icon64.png">
 </head>
 
 <body>
     <canvas id="glcanvas" tabindex='1'></canvas>
     <!-- Minified and statically hosted version of https://github.com/not-fl3/macroquad/blob/master/js/mq_js_bundle.js -->
     <script src="mq_js_bundle.js"></script>
-    <script>load("crabsweeper.wasm");</script> <!-- Your compiled wasm file -->
+    <script>load("crabsweeper.wasm");</script>
+    <script>
+        const glcanvas = document.getElementById("glcanvas");
+
+        glcanvas.addEventListener("contextmenu", function (e) {
+            e.preventDefault();
+        });
+    </script> <!-- Your compiled wasm file -->
 </body>
 
 </html>

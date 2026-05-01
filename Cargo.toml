@@ -10,6 +10,7 @@ unicode-width = "0.2.2"
 rand = { version = "0.10.1", default-features = false, features = ["std_rng"] }
 deterministic-hash = "1.0.2"
 rand_pcg = "0.10.2"
+image = "0.24.9"
 
 [features]
 default = []

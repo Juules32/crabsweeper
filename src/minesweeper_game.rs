@@ -12,6 +12,7 @@ pub struct MinesweeperGame {
     pub state: State,
     pub grid: MinesweeperGrid,
     generator: Box<dyn Generator>,
+    pub status_message: String,
 }
 
 impl MinesweeperGame {
@@ -20,10 +21,12 @@ impl MinesweeperGame {
             state: State::JustCreated,
             grid: MinesweeperGrid::empty(width, height),
             generator,
+            status_message: String::new(),
         }
     }
 
     pub fn reveal(&mut self, x: usize, y: usize) {
+        self.status_message = String::new();
         if let State::JustCreated = self.state {
             self.state = State::Playing;
             self.grid.update_content(self.generator.generate(self.grid.width, self.grid.height, (x, y)));
@@ -48,6 +51,7 @@ impl MinesweeperGame {
     }
 
     pub fn flag(&mut self, x: usize, y: usize) {
+        self.status_message = String::new();
         if self.state == State::JustCreated || self.state == State::Playing {
         self.grid.flag(x, y);
         }

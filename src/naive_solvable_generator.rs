@@ -9,8 +9,6 @@ pub struct NaiveSolvableGenerator {
 
 impl Generator for NaiveSolvableGenerator {
     fn generate(&self, width: usize, height: usize, pressed_coords: (usize, usize)) -> MinesweeperGrid {
-        let solver = Solver;
-
         let mut rng = Pcg64::seed_from_u64(self.seed);
 
         for _ in 0..100 {
@@ -20,7 +18,7 @@ impl Generator for NaiveSolvableGenerator {
             };
             let mut grid = random_generator.generate(width, height, pressed_coords);
             grid.reveal(pressed_coords.0, pressed_coords.1);
-            if solver.is_solvable(&grid) {
+            if Solver::is_solvable(&grid) {
                 return grid;
             }
         }

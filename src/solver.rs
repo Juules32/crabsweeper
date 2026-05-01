@@ -13,7 +13,7 @@ pub enum SolveStatus {
 pub struct Solver;
 
 impl Solver {
-    pub fn solve_one_step(&self, grid: &mut MinesweeperGrid) -> Result<SolveStatus, InconsistencyError> {
+    pub fn solve_one_step(grid: &mut MinesweeperGrid) -> Result<SolveStatus, InconsistencyError> {
         let mut is_stuck = true;
         let revealed_number_coords: Vec<(usize, usize, &Cell)> = grid
             .iter_xy()
@@ -91,9 +91,9 @@ impl Solver {
         }
     }
 
-    pub fn solve(&self, grid: &mut MinesweeperGrid) -> Result<SolveStatus, InconsistencyError> {
+    pub fn solve(grid: &mut MinesweeperGrid) -> Result<SolveStatus, InconsistencyError> {
         for _ in 0..MAX_SOLVING_ITERATIONS {
-            match self.solve_one_step(grid) {
+            match Self::solve_one_step(grid) {
                 Ok(SolveStatus::Stuck) => { return Ok(SolveStatus::Stuck) },
                 Ok(SolveStatus::ProgressMade) => {},
                 Ok(SolveStatus::Won) => { return Ok(SolveStatus::Won); }
@@ -103,9 +103,9 @@ impl Solver {
         Err(InconsistencyError("Solver took too many iterations"))
     }
 
-    pub fn is_solvable(&self, grid: &MinesweeperGrid) -> bool {
+    pub fn is_solvable(grid: &MinesweeperGrid) -> bool {
         let mut grid = grid.clone();
-        match self.solve(&mut grid) {
+        match Self::solve(&mut grid) {
             Ok(SolveStatus::Won) => true,
             _ => false,
         }

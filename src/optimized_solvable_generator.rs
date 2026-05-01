@@ -12,7 +12,6 @@ pub struct OptimizedSolvableGenerator {
 impl Generator for OptimizedSolvableGenerator {
     fn generate(&self, width: usize, height: usize, pressed_coords: (usize, usize)) -> MinesweeperGrid {
         let (pressed_x, pressed_y) = pressed_coords;
-        let solver = Solver;
         let mut rng = Pcg64::seed_from_u64(self.seed);
 
         let mut grid = MinesweeperGrid::from(BitGrid::empty(width, height));
@@ -29,7 +28,7 @@ impl Generator for OptimizedSolvableGenerator {
                 grid = MinesweeperGrid::from_mine_coords(width, height, &mines);
                 grid.reveal(pressed_x, pressed_y);
                 println!("{grid}");
-                if solver.is_solvable(&grid) {
+                if Solver::is_solvable(&grid) {
                     current_eligible_mine_coords.extend(&rejected_mines);
                     rejected_mines.clear();
                 } else {

@@ -1,7 +1,6 @@
-use std::collections::HashSet;
-use rand::SeedableRng;
-use rand::seq::IteratorRandom;
+use rand::{RngExt, SeedableRng};
 use rand_pcg::Pcg64;
+use std::collections::HashSet;
 use crate::{BitGrid, Generator, MinesweeperGrid, Position, Solver};
 
 pub struct OptimizedSolvableGenerator {
@@ -13,28 +12,36 @@ impl Generator for OptimizedSolvableGenerator {
     fn generate(&self, width: usize, height: usize, pressed_position: Position) -> MinesweeperGrid {
         let mut rng = Pcg64::seed_from_u64(self.seed);
         let mut grid = MinesweeperGrid::from(BitGrid::empty(width, height));
-        let eligible_generator_positions: HashSet<Position> = grid.generate_eligible_generator_positions(pressed_position).into_iter().collect();
-        let mut current_eligible_generator_positions = eligible_generator_positions.clone();
+
+        let eligible_generator_positions: Vec<Position> =
+            grid.generate_eligible_generator_positions(pressed_position);
+
+        let mut current_positions: Vec<Position> = eligible_generator_positions.clone();
+
+        let mut rejected_positions: Vec<Position> = Vec::new();
+
         let mut mines: HashSet<Position> = HashSet::new();
-        let mut rejected_mines: HashSet<Position> = HashSet::new();
 
         while mines.len() < self.num_mines {
-            if let Some(&eligible_mine_position) = current_eligible_generator_positions.iter().choose(&mut rng) {
-                mines.insert(eligible_mine_position);
-                current_eligible_generator_positions.remove(&eligible_mine_position);
+            if !current_positions.is_empty() {
+                let idx = rng.random_range(0..current_positions.len());
+                let pos = current_positions.swap_remove(idx);
+
+                mines.insert(pos);
+
                 grid = MinesweeperGrid::from_mine_positions(width, height, &mines);
                 grid.reveal(pressed_position);
+
                 if Solver::is_solvable(&grid) {
-                    current_eligible_generator_positions.extend(&rejected_mines);
-                    rejected_mines.clear();
+                    current_positions.extend(rejected_positions.drain(..));
                 } else {
-                    mines.remove(&eligible_mine_position);
-                    rejected_mines.insert(eligible_mine_position);
+                    mines.remove(&pos);
+                    rejected_positions.push(pos);
                 }
             } else {
                 mines.clear();
-                rejected_mines.clear();
-                current_eligible_generator_positions = eligible_generator_positions.clone();
+                rejected_positions.clear();
+                current_positions = eligible_generator_positions.clone();
             }
         }
 

@@ -239,7 +239,7 @@ impl Presentation {
 
     fn ui_group_2(&mut self) -> impl FnOnce(&mut Ui) {
         |ui| {
-            ui.input_text(hash(&self.generator_seed), "RNG Seed", &mut self.generator_seed);
+            ui.input_text(hash!(), "RNG Seed", &mut self.generator_seed);
             let random_generator_num_mines_range = 1.0..(self.width_slider * self.height_slider - 9.0).min(99.0);
             ui.slider(hash!(), "Num Mines", random_generator_num_mines_range, &mut self.generator_num_mines);
             self.generator_num_mines = self.generator_num_mines.round();
@@ -253,7 +253,7 @@ impl Presentation {
                     0 => Box::new(RandomGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
                     1 => Box::new(NaiveSolvableGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
                     2 => Box::new(OptimizedSolvableGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
-                    _ => panic!("Selected non-existent generator option"),
+                    _ => panic!("Selected non-existent generator option"), // Should never happen
                 };
                 self.game = MinesweeperGame::new(self.width_slider as usize, self.height_slider as usize, generator);
             }

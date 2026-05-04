@@ -27,7 +27,7 @@ pub const CELL_THEME: CellTheme = CellTheme {
     empty: " ",
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 pub struct Position {
     pub x: usize,
     pub y: usize,

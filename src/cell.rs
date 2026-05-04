@@ -36,6 +36,20 @@ impl Cell {
             self.state = CellState::Revealed;
         }
     }
+
+    pub fn get_minesweeprs_char(&self) -> char {
+        match self.state {
+            CellState::Flagged => '*',
+            CellState::Covered => 'x',
+            CellState::Revealed => {
+                match self.content {
+                    CellContent::Empty => '0',
+                    CellContent::Number(n) => char::from_digit(n as u32, 10).unwrap(),
+                    CellContent::Mine => '*' // Should never happen
+                }
+            }
+        }
+    }
 }
 
 impl From<CellContent> for Cell {

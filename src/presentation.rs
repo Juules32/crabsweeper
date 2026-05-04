@@ -2,6 +2,7 @@ use macroquad::hash;
 use macroquad::miniquad::window::screen_size;
 use macroquad::prelude::*;
 use macroquad::ui::{root_ui, Skin};
+use minesweeprs::InconsistencyError;
 use crate::{hash, Cell, CellContent, CellState, Generator, MinesweeperGame, NaiveSolvableGenerator, OptimizedSolvableGenerator, RandomGenerator, SolveStatus, Solver, State};
 use crate::Position;
 
@@ -195,8 +196,28 @@ impl Presentation {
                         };
                         self.game = MinesweeperGame::new(self.width_slider as usize, self.height_slider as usize, generator);
                     }
+                    ui.same_line(110.0);
                     if ui.button(None, "Hide Settings") {
                         self.show_settings = false;
+                    }
+                    if self.game.state == State::Playing {
+                        if ui.button(None, "Solve One Step") {
+                            match Solver::solve_one_step(&mut self.game.grid) {
+                                Ok(SolveStatus::Stuck) => { self.game.status_message = String::from("Grid contains 50/50s"); }
+                                Ok(SolveStatus::ProgressMade) => {}
+                                Ok(SolveStatus::Won) => { self.game.state = State::YouWon; }
+                                Err(InconsistencyError(s)) => { self.game.status_message = String::from(s); }
+                            }
+                        }
+                        ui.same_line(110.0);
+                        if ui.button(None, "Full Solve") {
+                            match Solver::solve(&mut self.game.grid) {
+                                Ok(SolveStatus::Stuck) => { self.game.status_message = String::from("Grid contains 50/50s"); }
+                                Ok(SolveStatus::ProgressMade) => {}
+                                Ok(SolveStatus::Won) => { self.game.state = State::YouWon; }
+                                Err(InconsistencyError(s)) => { self.game.status_message = String::from(s); }
+                            }
+                        }
                     }
                 });
             } else {
@@ -206,22 +227,6 @@ impl Presentation {
             }
 
             if self.game.state == State::Playing {
-                if ui.button(None, "Solve One Step") {
-                    match Solver::solve_one_step(&mut self.game.grid) {
-                        Ok(SolveStatus::Stuck) => { self.game.status_message = String::from("Grid contains 50/50s"); }
-                        Ok(SolveStatus::ProgressMade) => {}
-                        Ok(SolveStatus::Won) => { self.game.state = State::YouWon; }
-                        Err(_) => { self.game.status_message = String::from("Something went wrong with the solver"); }
-                    }
-                }
-                if ui.button(None, "Full Solve") {
-                    match Solver::solve(&mut self.game.grid) {
-                        Ok(SolveStatus::Stuck) => { self.game.status_message = String::from("Grid contains 50/50s"); }
-                        Ok(SolveStatus::ProgressMade) => {}
-                        Ok(SolveStatus::Won) => { self.game.state = State::YouWon; }
-                        Err(_) => { self.game.status_message = String::from("Something went wrong with the solver"); }
-                    }
-                }
                 ui.label(None, &format!("{:02} unflagged crabs left", self.game.grid.count_remaining_flags()));
                 ui.label(None, &self.game.status_message);
             }

@@ -126,6 +126,20 @@ impl MinesweeperGrid {
             }
         }
     }
+
+    pub fn to_minesweeprs_string(&self) -> String {
+        let mut res = String::new();
+            for x in 0..self.width {
+        for y in 0..self.height {
+                let position = Position { x, y };
+                let cell = self.get(position);
+                res.push(cell.get_minesweeprs_char())
+            }
+            res.push('\n');
+        }
+        res
+    }
+
 }
 
 impl From<BitGrid> for MinesweeperGrid {

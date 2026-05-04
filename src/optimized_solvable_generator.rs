@@ -17,7 +17,6 @@ impl Generator for OptimizedSolvableGenerator {
         let mut current_eligible_generator_positions = eligible_generator_positions.clone();
         let mut mines: HashSet<Position> = HashSet::new();
         let mut rejected_mines: HashSet<Position> = HashSet::new();
-        let mut num_failed_tries = 0;
 
         while mines.len() < self.num_mines {
             if let Some(&eligible_mine_position) = current_eligible_generator_positions.iter().choose(&mut rng) {
@@ -37,10 +36,6 @@ impl Generator for OptimizedSolvableGenerator {
                 mines.clear();
                 rejected_mines.clear();
                 current_eligible_generator_positions = eligible_generator_positions.clone();
-                num_failed_tries += 1;
-                if num_failed_tries >= 100 {
-                    panic!("Too many tries")
-                }
             }
         }
 

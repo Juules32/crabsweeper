@@ -39,8 +39,8 @@ pub fn load_icon_from_png(path: &str) -> Icon {
 pub fn window_conf() -> Conf {
     Conf {
         window_title: "Crabsweeper".to_string(),
-        window_width: 800,
-        window_height: 600,
+        window_width: 1280,
+        window_height: 720,
         window_resizable: true,
         #[cfg(not(target_arch = "wasm32"))]
         icon: Some(load_icon_from_png("assets/icon64.png")),

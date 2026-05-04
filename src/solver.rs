@@ -4,6 +4,7 @@ use crate::{MinesweeperGrid, Position};
 const OTHER_TAG: Position = Position { x: 1000, y: 1000 };
 const MAX_SOLVING_ITERATIONS: usize = 100;
 
+#[derive(PartialEq)]
 pub enum SolveStatus {
     Stuck,
     ProgressMade,
@@ -66,9 +67,6 @@ impl Solver {
             &OTHER_TAG
         )?;
 
-        //println!("{rules:?}");
-        //println!("{output:?}");
-
         for (position, value) in output {
             if position != OTHER_TAG {
                 if value == 0.0 {
@@ -112,9 +110,6 @@ impl Solver {
             &(OTHER_TAG.x, OTHER_TAG.y),
         )?;
 
-        //println!("{rules:?}");
-        //println!("{output:?}");
-
         for ((x, y), value) in output {
             let position = Position { x, y };
             if position != OTHER_TAG {
@@ -122,11 +117,9 @@ impl Solver {
                     grid.reveal(position);
                     is_stuck = false;
                 }
-                if value == 1.0 {
-                    if !grid.get(position).is_flagged() {
-                        grid.flag(position);
-                        is_stuck = false;
-                    }
+                if value == 1.0 && !grid.get(position).is_flagged() {
+                    grid.flag(position);
+                    is_stuck = false;
                 }
             }
         }
@@ -155,10 +148,6 @@ impl Solver {
     }
 
     pub fn is_solvable(grid: &MinesweeperGrid) -> bool {
-        let mut grid = grid.clone();
-        match Self::solve(&mut grid) {
-            Ok(SolveStatus::Won) => true,
-            _ => false,
-        }
+        Self::solve(&mut grid.clone()) == Ok(SolveStatus::Won)
     }
 }

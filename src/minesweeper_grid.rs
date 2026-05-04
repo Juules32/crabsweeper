@@ -139,7 +139,6 @@ impl MinesweeperGrid {
         }
         res
     }
-
 }
 
 impl From<BitGrid> for MinesweeperGrid {

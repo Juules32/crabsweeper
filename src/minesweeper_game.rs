@@ -36,9 +36,8 @@ impl MinesweeperGame {
             if cell.state == CellState::Covered {
             self.grid.reveal(position);
             } else {
-                match cell.content {
-                    CellContent::Number(_) => { self.grid.chord(position) },
-                    _ => {}
+                if let CellContent::Number(_) = cell.content {
+                    self.grid.chord(position)
                 }
             }
             if self.grid.count_revealed_mines() > 0 {

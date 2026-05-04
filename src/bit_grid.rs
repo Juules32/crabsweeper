@@ -29,7 +29,6 @@ impl BitGrid {
             }
         }
     }
-
 }
 
 impl fmt::Display for BitGrid {

@@ -1,19 +1,25 @@
 use macroquad::hash;
 use macroquad::miniquad::window::screen_size;
 use macroquad::prelude::*;
-use macroquad::ui::{root_ui, Skin};
+use macroquad::ui::{root_ui, Skin, Ui};
 use minesweeprs::InconsistencyError;
 use crate::{hash, Cell, CellContent, CellState, Generator, MinesweeperGame, NaiveSolvableGenerator, OptimizedSolvableGenerator, RandomGenerator, SolveStatus, Solver, State};
 use crate::Position;
 
 const MIN_UI_WIDTH: f32 = 100.0;
-
 const CELL_SIZE: f32 = 16.0;
 const BOARD_PADDING: f32 = 116.0;
 const MIN_ZOOM: f32 = 0.1;
 const MAX_ZOOM: f32 = 1.5;
 const ZOOM_STEP: f32 = 0.08;
 const SCALE_THRESHOLD: f32 = 0.3;
+const INITIAL_SEED: String = String::new();
+const INITIAL_NUM_MINES: usize = 10;
+const INITIAL_ZOOM: f32 = 1.0;
+const INITIAL_WIDTH: usize = 9;
+const INITIAL_HEIGHT: usize = 9;
+const INITIAL_GENERATOR_OPTION: usize = 0;
+const UI_GROUP_HEIGHT: f32 = 70.0;
 
 fn get_spritesheet_index(cell: Cell, is_pressed_cell: bool) -> f32 {
     if is_pressed_cell && cell.state == CellState::Covered {
@@ -63,10 +69,13 @@ pub struct Presentation {
 }
 
 impl Presentation {
-    pub async fn new() -> Self {
-        let game = MinesweeperGame::new(9, 9, Box::new(RandomGenerator { seed: hash(&String::new()), num_mines: 10 }));
+    async fn new() -> Self {
+        let game = MinesweeperGame::new(
+            INITIAL_WIDTH,
+            INITIAL_HEIGHT,
+            Box::new(RandomGenerator { seed: hash(&INITIAL_SEED), num_mines: INITIAL_NUM_MINES })
+        );
 
-        // todo: make init instead of new? single responsibility principle?
         let spritesheet = load_texture("assets/spritesheet.png").await.unwrap();
         spritesheet.set_filter(FilterMode::Nearest);
 
@@ -81,12 +90,12 @@ impl Presentation {
         root_ui().push_skin(&skin);
 
         Self {
-            zoom_level: 1.0,
-            width_slider: 9.0,
-            height_slider: 9.0,
-            generator_option: 0,
-            generator_seed: String::new(),
-            generator_num_mines: 10.0,
+            zoom_level: INITIAL_ZOOM,
+            width_slider: INITIAL_WIDTH as f32,
+            height_slider: INITIAL_HEIGHT as f32,
+            generator_option: INITIAL_GENERATOR_OPTION,
+            generator_seed: INITIAL_SEED,
+            generator_num_mines: INITIAL_NUM_MINES as f32,
             show_settings: true,
             scale: 1.0,
             spritesheet,
@@ -139,7 +148,8 @@ impl Presentation {
         let grid_x = (mouse_x - (screen_width / 2.0) + offset_x) / (CELL_SIZE * self.scale);
         let grid_y = (mouse_y - (screen_height / 2.0) + offset_y) / (CELL_SIZE * self.scale);
 
-        if grid_x < 0.0 || grid_x >= self.game.grid.width as f32 || grid_y < 0.0 || grid_y >= self.game.grid.height as f32 {
+        if grid_x < 0.0 || grid_x >= self.game.grid.width as f32
+            || grid_y < 0.0 || grid_y >= self.game.grid.height as f32 {
             None
         } else {
             Some(Position { x: grid_x as usize, y: grid_y as usize })
@@ -163,63 +173,30 @@ impl Presentation {
     }
 
     fn render_ui(&mut self) {
-        root_ui().window(hash!(screen_width() as usize, screen_height() as usize, 0), Vec2::new(0.0, 0.0), Vec2::new(screen_width(), screen_height()), |ui| {
+        root_ui().window(
+            hash!(screen_width() as usize,screen_height() as usize, 0),
+            Vec2::new(0.0, 0.0),
+            Vec2::new(screen_width(), screen_height()),
+            |ui| {
 
             if self.show_settings {
-                let size_range = 5.0..30.0;
+                ui.group(
+                    hash!(screen_width() as usize, screen_height() as usize, 1),
+                    Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), UI_GROUP_HEIGHT),
+                    self.ui_group_1()
+                );
 
-                ui.group(hash!(screen_width() as usize, screen_height() as usize, 1), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
-                    ui.slider(hash!(), "Grid Width", size_range.clone(), &mut self.width_slider);
-                    self.width_slider = self.width_slider.round();
+                ui.group(
+                    hash!(screen_width() as usize, screen_height() as usize, 2),
+                    Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), UI_GROUP_HEIGHT),
+                    self.ui_group_2()
+                );
 
-                    ui.slider(hash!(), "Grid Height", size_range.clone(), &mut self.height_slider);
-                    self.height_slider = self.height_slider.round();
-
-                    let variants = vec!["Random", "Naïve Solvable", "Optimized Solvable"];
-                    ui.combo_box(hash!(), "Generator Types", &variants, &mut self.generator_option);
-                });
-
-                ui.group(hash!(screen_width() as usize, screen_height() as usize, 2), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
-                    ui.input_text(hash(&self.generator_seed), "RNG Seed", &mut self.generator_seed);
-                    let random_generator_num_mines_range = 1.0..(self.width_slider * self.height_slider - 9.0).min(99.0);
-                    ui.slider(hash!(), "Num Mines", random_generator_num_mines_range, &mut self.generator_num_mines);
-                    self.generator_num_mines = self.generator_num_mines.round();
-                });
-
-                ui.group(hash!(screen_width() as usize, screen_height() as usize, 3), Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), 70.0), |ui| {
-                    if ui.button(None, "Generate Grid") {
-                        let generator: Box<dyn Generator> = match self.generator_option {
-                            0 => Box::new(RandomGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
-                            1 => Box::new(NaiveSolvableGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
-                            2 => Box::new(OptimizedSolvableGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
-                            _ => panic!("Selected non-existent generator option"),
-                        };
-                        self.game = MinesweeperGame::new(self.width_slider as usize, self.height_slider as usize, generator);
-                    }
-                    ui.same_line(110.0);
-                    if ui.button(None, "Hide Settings") {
-                        self.show_settings = false;
-                    }
-                    if self.game.state == State::Playing {
-                        if ui.button(None, "Solve One Step") {
-                            match Solver::solve_one_step(&mut self.game.grid) {
-                                Ok(SolveStatus::Stuck) => { self.game.status_message = String::from("Grid contains 50/50s"); }
-                                Ok(SolveStatus::ProgressMade) => {}
-                                Ok(SolveStatus::Won) => { self.game.state = State::YouWon; }
-                                Err(InconsistencyError(s)) => { self.game.status_message = String::from(s); }
-                            }
-                        }
-                        ui.same_line(110.0);
-                        if ui.button(None, "Full Solve") {
-                            match Solver::solve(&mut self.game.grid) {
-                                Ok(SolveStatus::Stuck) => { self.game.status_message = String::from("Grid contains 50/50s"); }
-                                Ok(SolveStatus::ProgressMade) => {}
-                                Ok(SolveStatus::Won) => { self.game.state = State::YouWon; }
-                                Err(InconsistencyError(s)) => { self.game.status_message = String::from(s); }
-                            }
-                        }
-                    }
-                });
+                ui.group(
+                    hash!(screen_width() as usize, screen_height() as usize, 3),
+                    Vec2::new(MIN_UI_WIDTH.max((screen_width() / 3.0 - 4.0).round()), UI_GROUP_HEIGHT),
+                    self.ui_group_3()
+                );
             } else {
                 if ui.button(None, "Show Settings") {
                     self.show_settings = true;
@@ -230,12 +207,12 @@ impl Presentation {
                 ui.label(None, &format!("{:02} unflagged crabs left", self.game.grid.count_remaining_flags()));
                 ui.label(None, &self.game.status_message);
             }
-            //ui.label(None, &format!("{:?}", mouse_position()));
 
             if ui.button(Vec2::new(2.0, screen_height() - 22.0), "+") {
                 self.zoom_level += ZOOM_STEP;
                 self.zoom_level = self.zoom_level.clamp(MIN_ZOOM, MAX_ZOOM);
             }
+
             if ui.button(Vec2::new(15.0, screen_height() - 22.0), "-") {
                 if self.scale > SCALE_THRESHOLD {
                     self.zoom_level -= ZOOM_STEP;
@@ -245,8 +222,68 @@ impl Presentation {
         });
     }
 
-    fn render_grid(&self) {
+    fn ui_group_1(&mut self) -> impl FnOnce(&mut Ui) {
+        |ui| {
+            let size_range = 5.0..30.0;
 
+            ui.slider(hash!(), "Grid Width", size_range.clone(), &mut self.width_slider);
+            self.width_slider = self.width_slider.round();
+
+            ui.slider(hash!(), "Grid Height", size_range.clone(), &mut self.height_slider);
+            self.height_slider = self.height_slider.round();
+
+            let variants = vec!["Random", "Naïve Solvable", "Optimized Solvable"];
+            ui.combo_box(hash!(), "Generator Types", &variants, &mut self.generator_option);
+        }
+    }
+
+    fn ui_group_2(&mut self) -> impl FnOnce(&mut Ui) {
+        |ui| {
+            ui.input_text(hash(&self.generator_seed), "RNG Seed", &mut self.generator_seed);
+            let random_generator_num_mines_range = 1.0..(self.width_slider * self.height_slider - 9.0).min(99.0);
+            ui.slider(hash!(), "Num Mines", random_generator_num_mines_range, &mut self.generator_num_mines);
+            self.generator_num_mines = self.generator_num_mines.round();
+        }
+    }
+
+    fn ui_group_3(&mut self) -> impl FnOnce(&mut Ui) {
+        |ui| {
+            if ui.button(None, "Generate Grid") {
+                let generator: Box<dyn Generator> = match self.generator_option {
+                    0 => Box::new(RandomGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
+                    1 => Box::new(NaiveSolvableGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
+                    2 => Box::new(OptimizedSolvableGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
+                    _ => panic!("Selected non-existent generator option"),
+                };
+                self.game = MinesweeperGame::new(self.width_slider as usize, self.height_slider as usize, generator);
+            }
+            ui.same_line(110.0);
+            if ui.button(None, "Hide Settings") {
+                self.show_settings = false;
+            }
+            if self.game.state == State::Playing {
+                if ui.button(None, "Solve One Step") {
+                    match Solver::solve_one_step(&mut self.game.grid) {
+                        Ok(SolveStatus::Stuck) => { self.game.status_message = String::from("Grid contains 50/50s"); }
+                        Ok(SolveStatus::ProgressMade) => {}
+                        Ok(SolveStatus::Won) => { self.game.state = State::YouWon; }
+                        Err(InconsistencyError(s)) => { self.game.status_message = String::from(s); }
+                    }
+                }
+                ui.same_line(110.0);
+                if ui.button(None, "Full Solve") {
+                    match Solver::solve(&mut self.game.grid) {
+                        Ok(SolveStatus::Stuck) => { self.game.status_message = String::from("Grid contains 50/50s"); }
+                        Ok(SolveStatus::ProgressMade) => {}
+                        Ok(SolveStatus::Won) => { self.game.state = State::YouWon; }
+                        Err(InconsistencyError(s)) => { self.game.status_message = String::from(s); }
+                    }
+                }
+            }
+        }
+    }
+
+    fn render_grid(&self) {
         clear_background(DARKBLUE);
         for position in self.game.grid.iter_positions() {
             let is_pressed_cell = if let Some(pressed_cell) = self.pressed_cell {
@@ -296,7 +333,6 @@ impl Presentation {
                 self.zoom_level = self.zoom_level.clamp(MIN_ZOOM, MAX_ZOOM);
             }
         }
-
     }
 
     fn update_scale(&mut self) {

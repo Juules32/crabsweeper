@@ -24,7 +24,6 @@ impl Generator for OptimizedSolvableGenerator {
                 current_eligible_generator_positions.remove(&eligible_mine_position);
                 grid = MinesweeperGrid::from_mine_positions(width, height, &mines);
                 grid.reveal(pressed_position);
-                //println!("{grid}");
                 if Solver::is_solvable(&grid) {
                     current_eligible_generator_positions.extend(&rejected_mines);
                     rejected_mines.clear();

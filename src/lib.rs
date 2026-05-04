@@ -1,4 +1,4 @@
-#![deny(unsafe_op_in_unsafe_fn)]
+#![allow(clippy::collapsible_if)]
 
 mod grid;
 mod cell;
@@ -17,7 +17,6 @@ pub use cell::*;
 pub use grid::*;
 pub use minesweeper_grid::*;
 pub use bit_grid::*;
-
 pub use minesweeper_game::*;
 pub use generator::*;
 pub use random_generator::*;

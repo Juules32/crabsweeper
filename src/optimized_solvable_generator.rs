@@ -33,7 +33,7 @@ impl Generator for OptimizedSolvableGenerator {
                 grid.reveal(pressed_position);
 
                 if Solver::is_solvable(&grid) {
-                    current_positions.extend(rejected_positions.drain(..));
+                    current_positions.append(&mut rejected_positions);
                 } else {
                     mines.remove(&pos);
                     rejected_positions.push(pos);

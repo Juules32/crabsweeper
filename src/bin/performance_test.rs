@@ -6,7 +6,7 @@ use csv::Writer;
 use uuid::Uuid;
 
 const GRID_SIZES: [(usize, usize); 3] = [(9, 9), (16, 16), (30, 16)];
-const GRID_NAMES: [&'static str; 3] = ["small", "medium", "large"];
+const GRID_NAMES: [&str; 3] = ["small", "medium", "large"];
 const MAX_DURATION: u128 = 1000;
 const GENERATORS: [&dyn Generator; 2] = [&NaiveSolvableGenerator, &OptimizedSolvableGenerator];
 
@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         fs::create_dir_all(format!("performance_tests/{}", id))?;
 
-        let mut wtr = Writer::from_path(&format!("performance_tests/{}/{}.csv", id, grid_name))?;
+        let mut wtr = Writer::from_path(format!("performance_tests/{}/{}.csv", id, grid_name))?;
 
         wtr.write_record(["Number of Mines", "Time (ms)", "Generator Type"])?;
 

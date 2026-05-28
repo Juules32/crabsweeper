@@ -1,9 +1,9 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 use deterministic_hash::DeterministicHasher;
 use macroquad::miniquad::conf::Icon;
-use image::imageops::FilterType;
 use macroquad::prelude::Conf;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn load_icon_from_png(path: &str) -> Icon {
     let img = image::open(path)
         .expect("Failed to load icon PNG")
@@ -14,7 +14,7 @@ pub fn load_icon_from_png(path: &str) -> Icon {
             img,
             size,
             size,
-            FilterType::Lanczos3,
+            image::imageops::FilterType::Lanczos3,
         );
         resized.into_raw()
     }

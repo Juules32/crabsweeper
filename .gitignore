@@ -2,3 +2,4 @@
 .idea
 *.wasm
 .zed
+performance_tests/*

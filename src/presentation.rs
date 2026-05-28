@@ -73,7 +73,9 @@ impl Presentation {
         let game = MinesweeperGame::new(
             INITIAL_WIDTH,
             INITIAL_HEIGHT,
-            Box::new(RandomGenerator { seed: hash(&INITIAL_SEED), num_mines: INITIAL_NUM_MINES })
+            Box::new(RandomGenerator),
+            INITIAL_NUM_MINES,
+            hash(&INITIAL_SEED),
         );
 
         let spritesheet = load_texture("assets/spritesheet.png").await.unwrap();
@@ -250,12 +252,12 @@ impl Presentation {
         |ui| {
             if ui.button(None, "Generate Grid") {
                 let generator: Box<dyn Generator> = match self.generator_option {
-                    0 => Box::new(RandomGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
-                    1 => Box::new(NaiveSolvableGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
-                    2 => Box::new(OptimizedSolvableGenerator { num_mines: self.generator_num_mines as usize, seed: hash(&self.generator_seed) }),
+                    0 => Box::new(RandomGenerator),
+                    1 => Box::new(NaiveSolvableGenerator),
+                    2 => Box::new(OptimizedSolvableGenerator),
                     _ => panic!("Selected non-existent generator option"), // Should never happen
                 };
-                self.game = MinesweeperGame::new(self.width_slider as usize, self.height_slider as usize, generator);
+                self.game = MinesweeperGame::new(self.width_slider as usize, self.height_slider as usize, generator, self.generator_num_mines as usize, hash(&self.generator_seed));
             }
             ui.same_line(110.0);
             if ui.button(None, "Hide Settings") {

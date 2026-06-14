@@ -14,9 +14,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let id = Uuid::new_v4().to_string();
     let mut rng = Pcg64::seed_from_u64(12345);
 
+    println!("Starting performance test (id: {})", id);
+
     for i in 0..GRID_SIZES.len() {
         let grid_size = GRID_SIZES[i];
         let grid_name = GRID_NAMES[i];
+
+        println!(
+            "[{}/{}] {} grid ({}x{})",
+            i + 1,
+            GRID_SIZES.len(),
+            grid_name,
+            grid_size.0,
+            grid_size.1,
+        );
 
         fs::create_dir_all(format!("performance_tests/{}", id))?;
 
@@ -51,8 +62,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                     break;
                 }
             }
+
+            println!("    done: {}", generator.name());
         }
     }
+
+    println!("Performance test complete.");
 
     Ok(())
 }
